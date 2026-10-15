@@ -1,0 +1,336 @@
+[
+  {
+    "product_id": "p1",
+    "barcode": "0000000000001",
+    "name": "Prairie Morning Coffee",
+    "brand": "Prairie Morning",
+    "company_id": "co-prairie",
+    "category": "Coffee",
+    "country_of_manufacture": "Canada",
+    "country_of_origin_components": [
+      "Unknown coffee bean origin"
+    ],
+    "packaging": {
+      "materials": [
+        "Paper",
+        "Plastic liner"
+      ],
+      "recyclable_in_regina": null,
+      "recyclable_in_province": null,
+      "compostable": null,
+      "reusable": false,
+      "plastic_weight_estimate_g": 12,
+      "source_id": "src-synthetic",
+      "status": "Unknown"
+    },
+    "source_id": "src-synthetic",
+    "emoji": "☕",
+    "size": "340 g"
+  },
+  {
+    "product_id": "p2",
+    "barcode": "0000000000002",
+    "name": "Northern Trail Oat Drink",
+    "brand": "Northern Trail",
+    "company_id": "co-northern",
+    "category": "Beverages",
+    "country_of_manufacture": "Canada",
+    "country_of_origin_components": [
+      "Oats: Canada (claimed)",
+      "Other ingredients: unknown"
+    ],
+    "packaging": {
+      "materials": [
+        "Carton",
+        "Plastic cap"
+      ],
+      "recyclable_in_regina": null,
+      "recyclable_in_province": null,
+      "compostable": false,
+      "reusable": false,
+      "plastic_weight_estimate_g": 7,
+      "source_id": "src-company-demo",
+      "status": "Claimed"
+    },
+    "source_id": "src-synthetic",
+    "emoji": "🥛",
+    "size": "1 L"
+  },
+  {
+    "product_id": "p3",
+    "barcode": "0000000000003",
+    "name": "Everyday Ground Coffee",
+    "brand": "Everyday",
+    "company_id": "co-everyday",
+    "category": "Coffee",
+    "country_of_manufacture": null,
+    "country_of_origin_components": [],
+    "packaging": {
+      "materials": [
+        "Plastic pouch"
+      ],
+      "recyclable_in_regina": null,
+      "recyclable_in_province": null,
+      "compostable": null,
+      "reusable": false,
+      "plastic_weight_estimate_g": 20,
+      "source_id": "src-synthetic",
+      "status": "Unknown"
+    },
+    "source_id": "src-synthetic",
+    "emoji": "☕",
+    "size": "320 g"
+  },
+  {
+    "product_id": "p4",
+    "barcode": "0000000000004",
+    "name": "Maple Grove Granola",
+    "brand": "Maple Grove",
+    "company_id": "co-northern",
+    "category": "Breakfast",
+    "country_of_manufacture": "Canada",
+    "country_of_origin_components": [
+      "Oats: unknown"
+    ],
+    "packaging": {
+      "materials": [
+        "Paperboard",
+        "Plastic bag"
+      ],
+      "recyclable_in_regina": null,
+      "recyclable_in_province": null,
+      "compostable": null,
+      "reusable": false,
+      "plastic_weight_estimate_g": 9,
+      "source_id": "src-synthetic",
+      "status": "Unknown"
+    },
+    "source_id": "src-synthetic",
+    "emoji": "🥣",
+    "size": "450 g"
+  },
+  {
+    "product_id": "p5",
+    "barcode": "0000000000005",
+    "name": "Wascana Wildflower Honey",
+    "brand": "Wascana Hives",
+    "company_id": "co-wascana",
+    "category": "Spreads",
+    "country_of_manufacture": "Canada",
+    "country_of_origin_components": [
+      "Honey: Saskatchewan (claimed)"
+    ],
+    "packaging": {
+      "materials": [
+        "Glass jar",
+        "Metal lid"
+      ],
+      "recyclable_in_regina": false,
+      "recyclable_in_province": true,
+      "compostable": false,
+      "reusable": true,
+      "plastic_weight_estimate_g": null,
+      "source_id": "src-company-demo",
+      "status": "Claimed"
+    },
+    "source_id": "src-synthetic",
+    "emoji": "🍯",
+    "size": "500 g"
+  },
+  {
+    "product_id": "p6",
+    "barcode": "0000000000006",
+    "name": "Global Choice Hazelnut Spread",
+    "brand": "Global Choice",
+    "company_id": "co-everyday",
+    "category": "Spreads",
+    "country_of_manufacture": "Italy",
+    "country_of_origin_components": [
+      "Hazelnuts: unknown",
+      "Cocoa: unknown"
+    ],
+    "packaging": {
+      "materials": [
+        "Plastic jar",
+        "Plastic lid"
+      ],
+      "recyclable_in_regina": true,
+      "recyclable_in_province": true,
+      "compostable": false,
+      "reusable": false,
+      "plastic_weight_estimate_g": null,
+      "source_id": "src-synthetic",
+      "status": "Unknown"
+    },
+    "source_id": "src-synthetic",
+    "emoji": "🫙",
+    "size": "375 g"
+  },
+  {
+    "product_id": "p7",
+    "barcode": "0000000000007",
+    "name": "Maple Grove Peanut Butter",
+    "brand": "Maple Grove",
+    "company_id": "co-northern",
+    "category": "Spreads",
+    "country_of_manufacture": "Canada",
+    "country_of_origin_components": [
+      "Peanuts: United States (claimed)"
+    ],
+    "packaging": {
+      "materials": [
+        "Plastic jar",
+        "Plastic lid"
+      ],
+      "recyclable_in_regina": true,
+      "recyclable_in_province": true,
+      "compostable": false,
+      "reusable": false,
+      "plastic_weight_estimate_g": null,
+      "source_id": "src-company-demo",
+      "status": "Claimed"
+    },
+    "source_id": "src-synthetic",
+    "emoji": "🥜",
+    "size": "1 kg"
+  },
+  {
+    "product_id": "p8",
+    "barcode": "0000000000008",
+    "name": "True North 70% Dark Chocolate",
+    "brand": "True North Cocoa",
+    "company_id": "co-truenorth",
+    "category": "Chocolate",
+    "country_of_manufacture": "Canada",
+    "country_of_origin_components": [
+      "Cocoa: Ghana (claimed)",
+      "Sugar: unknown"
+    ],
+    "packaging": {
+      "materials": [
+        "Paper wrapper",
+        "Foil wrapper"
+      ],
+      "recyclable_in_regina": null,
+      "recyclable_in_province": null,
+      "compostable": false,
+      "reusable": false,
+      "plastic_weight_estimate_g": null,
+      "source_id": "src-company-demo",
+      "status": "Claimed"
+    },
+    "source_id": "src-synthetic",
+    "emoji": "🍫",
+    "size": "100 g"
+  },
+  {
+    "product_id": "p9",
+    "barcode": "0000000000009",
+    "name": "Prairie Pulse Lentil Chips",
+    "brand": "Prairie Pulse",
+    "company_id": "co-pulse",
+    "category": "Snacks",
+    "country_of_manufacture": "Canada",
+    "country_of_origin_components": [
+      "Lentils: Saskatchewan (claimed)"
+    ],
+    "packaging": {
+      "materials": [
+        "Flexible plastic bag"
+      ],
+      "recyclable_in_regina": false,
+      "recyclable_in_province": true,
+      "compostable": false,
+      "reusable": false,
+      "plastic_weight_estimate_g": null,
+      "source_id": "src-company-demo",
+      "status": "Claimed"
+    },
+    "source_id": "src-synthetic",
+    "emoji": "🥨",
+    "size": "150 g"
+  },
+  {
+    "product_id": "p10",
+    "barcode": "0000000000010",
+    "name": "Everyday Instant Coffee",
+    "brand": "Everyday",
+    "company_id": "co-everyday",
+    "category": "Coffee",
+    "country_of_manufacture": "Unknown",
+    "country_of_origin_components": [
+      "Coffee: unknown"
+    ],
+    "packaging": {
+      "materials": [
+        "Glass jar",
+        "Plastic lid"
+      ],
+      "recyclable_in_regina": false,
+      "recyclable_in_province": true,
+      "compostable": false,
+      "reusable": false,
+      "plastic_weight_estimate_g": null,
+      "source_id": "src-synthetic",
+      "status": "Unknown"
+    },
+    "source_id": "src-synthetic",
+    "emoji": "☕",
+    "size": "200 g"
+  },
+  {
+    "product_id": "p11",
+    "barcode": "0000000000011",
+    "name": "Northern Trail Sparkling Water",
+    "brand": "Northern Trail",
+    "company_id": "co-northern",
+    "category": "Beverages",
+    "country_of_manufacture": "Canada",
+    "country_of_origin_components": [
+      "Water: Canada (claimed)"
+    ],
+    "packaging": {
+      "materials": [
+        "Aluminum can"
+      ],
+      "recyclable_in_regina": false,
+      "recyclable_in_province": true,
+      "compostable": false,
+      "reusable": false,
+      "plastic_weight_estimate_g": null,
+      "source_id": "src-company-demo",
+      "status": "Claimed"
+    },
+    "source_id": "src-synthetic",
+    "emoji": "🥤",
+    "size": "355 mL x 12"
+  },
+  {
+    "product_id": "p12",
+    "barcode": "0000000000012",
+    "name": "Prairie Morning Oat Bites",
+    "brand": "Prairie Morning",
+    "company_id": "co-prairie",
+    "category": "Breakfast",
+    "country_of_manufacture": "Canada",
+    "country_of_origin_components": [
+      "Oats: Saskatchewan (claimed)"
+    ],
+    "packaging": {
+      "materials": [
+        "Cardboard box",
+        "Flexible plastic bag"
+      ],
+      "recyclable_in_regina": null,
+      "recyclable_in_province": true,
+      "compostable": false,
+      "reusable": false,
+      "plastic_weight_estimate_g": null,
+      "source_id": "src-company-demo",
+      "status": "Claimed"
+    },
+    "source_id": "src-synthetic",
+    "emoji": "🥣",
+    "size": "400 g"
+  }
+]

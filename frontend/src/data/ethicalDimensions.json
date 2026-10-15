@@ -1,0 +1,44 @@
+[
+  {
+    "dimension_id": "canadian_ownership",
+    "label": "Buy Canadian",
+    "icon": "🍁",
+    "description": "Buy Canadian criteria",
+    "default_weight": 80
+  },
+  {
+    "dimension_id": "local_business",
+    "label": "Support local",
+    "icon": "📍",
+    "description": "Support local criteria",
+    "default_weight": 55
+  },
+  {
+    "dimension_id": "fair_trade",
+    "label": "Fair trade",
+    "icon": "🤝",
+    "description": "Fair trade criteria",
+    "default_weight": 65
+  },
+  {
+    "dimension_id": "animal_welfare",
+    "label": "Animal welfare",
+    "icon": "🐾",
+    "description": "Animal welfare criteria",
+    "default_weight": 35
+  },
+  {
+    "dimension_id": "environment",
+    "label": "Environment",
+    "icon": "🌱",
+    "description": "Environment criteria",
+    "default_weight": 75
+  },
+  {
+    "dimension_id": "packaging",
+    "label": "Sustainable packaging",
+    "icon": "📦",
+    "description": "Sustainable packaging criteria",
+    "default_weight": 70
+  }
+]

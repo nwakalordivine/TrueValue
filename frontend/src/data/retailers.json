@@ -1,0 +1,32 @@
+[
+  {
+    "retailer_id": "r1",
+    "name": "Demo Market Regina",
+    "latitude": null,
+    "longitude": null,
+    "address": "Fictional Regina location",
+    "company_id": null,
+    "is_local": true,
+    "osm_id": null,
+    "categories": [
+      "grocery"
+    ],
+    "hours": null,
+    "source_id": "src-synthetic"
+  },
+  {
+    "retailer_id": "r2",
+    "name": "Demo Neighbourhood Grocer",
+    "latitude": null,
+    "longitude": null,
+    "address": "Fictional Regina location",
+    "company_id": null,
+    "is_local": true,
+    "osm_id": null,
+    "categories": [
+      "grocery"
+    ],
+    "hours": null,
+    "source_id": "src-synthetic"
+  }
+]

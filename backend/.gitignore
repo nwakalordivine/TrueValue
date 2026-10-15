@@ -1,0 +1,9 @@
+.env
+**/.env
+node_modules/
+.venv/
+dist/
+__pycache__/
+*.csv
+*.db
+EOF

@@ -1,0 +1,134 @@
+[
+  {
+    "company_id": "co-prairie",
+    "legal_name": "Prairie Morning Foods (fictional)",
+    "brand_names": [
+      "Prairie Morning"
+    ],
+    "parent_company_id": null,
+    "country_of_incorporation": "Canada",
+    "headquarters_city": "Regina",
+    "headquarters_province": "SK",
+    "ownership_type": "Canadian",
+    "percent_canadian_owned": 90,
+    "business_number": null,
+    "registry_source_id": "src-company-demo",
+    "is_local": true,
+    "latitude": null,
+    "longitude": null,
+    "ownership_status": "Claimed"
+  },
+  {
+    "company_id": "co-northern",
+    "legal_name": "Northern Trail Foods (fictional)",
+    "brand_names": [
+      "Northern Trail",
+      "Maple Grove"
+    ],
+    "parent_company_id": null,
+    "country_of_incorporation": "Canada",
+    "headquarters_city": "Saskatoon",
+    "headquarters_province": "SK",
+    "ownership_type": "mixed",
+    "percent_canadian_owned": 65,
+    "business_number": null,
+    "registry_source_id": "src-company-demo",
+    "is_local": false,
+    "latitude": null,
+    "longitude": null,
+    "ownership_status": "Claimed"
+  },
+  {
+    "company_id": "co-everyday",
+    "legal_name": "Everyday Brands Canada (fictional)",
+    "brand_names": [
+      "Everyday"
+    ],
+    "parent_company_id": "co-global",
+    "country_of_incorporation": "Canada",
+    "headquarters_city": "Toronto",
+    "headquarters_province": "ON",
+    "ownership_type": "foreign",
+    "percent_canadian_owned": 10,
+    "business_number": null,
+    "registry_source_id": "src-company-demo",
+    "is_local": false,
+    "latitude": null,
+    "longitude": null,
+    "ownership_status": "Claimed"
+  },
+  {
+    "company_id": "co-global",
+    "legal_name": "Global Everyday Holdings (fictional)",
+    "brand_names": [],
+    "parent_company_id": null,
+    "country_of_incorporation": "United States",
+    "headquarters_city": "Chicago",
+    "headquarters_province": null,
+    "ownership_type": "foreign",
+    "percent_canadian_owned": 0,
+    "business_number": null,
+    "registry_source_id": "src-company-demo",
+    "is_local": false,
+    "latitude": null,
+    "longitude": null,
+    "ownership_status": "Claimed"
+  },
+  {
+    "company_id": "co-wascana",
+    "legal_name": "Wascana Hives Co-operative (fictional)",
+    "brand_names": [
+      "Wascana Hives"
+    ],
+    "parent_company_id": null,
+    "country_of_incorporation": "Canada",
+    "headquarters_city": "Regina",
+    "headquarters_province": "SK",
+    "ownership_type": "Canadian",
+    "percent_canadian_owned": 100,
+    "business_number": null,
+    "registry_source_id": "src-company-demo",
+    "is_local": true,
+    "latitude": null,
+    "longitude": null,
+    "ownership_status": "Claimed"
+  },
+  {
+    "company_id": "co-truenorth",
+    "legal_name": "True North Cocoa Works (fictional)",
+    "brand_names": [
+      "True North Cocoa"
+    ],
+    "parent_company_id": null,
+    "country_of_incorporation": "Canada",
+    "headquarters_city": "Winnipeg",
+    "headquarters_province": "MB",
+    "ownership_type": "Canadian",
+    "percent_canadian_owned": 100,
+    "business_number": null,
+    "registry_source_id": "src-company-demo",
+    "is_local": false,
+    "latitude": null,
+    "longitude": null,
+    "ownership_status": "Claimed"
+  },
+  {
+    "company_id": "co-pulse",
+    "legal_name": "Prairie Pulse Snacks (fictional)",
+    "brand_names": [
+      "Prairie Pulse"
+    ],
+    "parent_company_id": null,
+    "country_of_incorporation": "Canada",
+    "headquarters_city": "Saskatoon",
+    "headquarters_province": "SK",
+    "ownership_type": "Canadian",
+    "percent_canadian_owned": 85,
+    "business_number": null,
+    "registry_source_id": "src-company-demo",
+    "is_local": false,
+    "latitude": null,
+    "longitude": null,
+    "ownership_status": "Claimed"
+  }
+]

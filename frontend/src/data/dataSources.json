@@ -1,0 +1,65 @@
+[
+  {
+    "source_id": "src-synthetic",
+    "name": "TrueValue fictional showcase dataset",
+    "type": "synthetic",
+    "trust_tier": null,
+    "url": null,
+    "last_refreshed": "2026-10-15",
+    "note": "Synthetic values are not real-world verification"
+  },
+  {
+    "source_id": "src-company-demo",
+    "name": "Fictional company self-report (demo)",
+    "type": "business-stated",
+    "trust_tier": 4,
+    "url": null,
+    "last_refreshed": "2026-10-15",
+    "note": "Company-stated facts have not been independently checked"
+  },
+  {
+    "source_id": "src-cert-demo",
+    "name": "Fictional certification registry (demo)",
+    "type": "synthetic",
+    "trust_tier": null,
+    "url": null,
+    "last_refreshed": "2026-10-15",
+    "note": "Verification is simulated for the showcase, not an actual certification"
+  },
+  {
+    "source_id": "src-cbca",
+    "name": "Corporations Canada: active CBCA corporations",
+    "type": "registry",
+    "trust_tier": 1,
+    "url": "https://open.canada.ca/data/en/dataset/0032ce54-c5dd-4b66-99a0-320a7b5e99f2",
+    "last_refreshed": "2026-10-15",
+    "note": "Real federal registry. Proves federal incorporation and registered office, not ownership."
+  },
+  {
+    "source_id": "src-regina-waste",
+    "name": "City of Regina recycling program (July 2025 changes)",
+    "type": "government",
+    "trust_tier": 1,
+    "url": "https://www.regina.ca/news/Changes-to-Reginas-Curbside-Recycling-Program-Begin-July-1",
+    "last_refreshed": "2026-10-15",
+    "note": "Official sorting rules. Product packaging materials themselves remain demo data."
+  },
+  {
+    "source_id": "src-osm",
+    "name": "OpenStreetMap contributors",
+    "type": "open database",
+    "trust_tier": 3,
+    "url": "https://www.openstreetmap.org/copyright",
+    "last_refreshed": "live",
+    "note": "Real store and recycling locations. Does not include product stock."
+  },
+  {
+    "source_id": "src-off",
+    "name": "Open Food Facts (community data, label claims)",
+    "type": "open database",
+    "trust_tier": 3,
+    "url": "https://world.openfoodfacts.org",
+    "last_refreshed": "live",
+    "note": "Real products by barcode. Label and volunteer data, not independent verification."
+  }
+]

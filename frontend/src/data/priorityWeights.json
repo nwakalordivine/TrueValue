@@ -1,0 +1,32 @@
+[
+  {
+    "user_id": "demo-user",
+    "dimension_id": "canadian_ownership",
+    "weight": 80
+  },
+  {
+    "user_id": "demo-user",
+    "dimension_id": "local_business",
+    "weight": 55
+  },
+  {
+    "user_id": "demo-user",
+    "dimension_id": "fair_trade",
+    "weight": 65
+  },
+  {
+    "user_id": "demo-user",
+    "dimension_id": "animal_welfare",
+    "weight": 35
+  },
+  {
+    "user_id": "demo-user",
+    "dimension_id": "environment",
+    "weight": 75
+  },
+  {
+    "user_id": "demo-user",
+    "dimension_id": "packaging",
+    "weight": 70
+  }
+]

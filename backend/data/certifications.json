@@ -1,0 +1,22 @@
+[
+  {
+    "certification_id": "cert-fair",
+    "name": "Demo Fair Trade Standard",
+    "issuing_body": "Fictional certifier",
+    "dimension_id": "fair_trade",
+    "verification_url": null,
+    "validity_start": "2026-01-01",
+    "validity_end": "2027-01-01",
+    "source_id": "src-cert-demo"
+  },
+  {
+    "certification_id": "cert-pack",
+    "name": "Demo Packaging Review",
+    "issuing_body": "Fictional certifier",
+    "dimension_id": "packaging",
+    "verification_url": null,
+    "validity_start": "2026-01-01",
+    "validity_end": "2027-01-01",
+    "source_id": "src-cert-demo"
+  }
+]

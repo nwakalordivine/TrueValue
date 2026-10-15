@@ -1,0 +1,13 @@
+[
+  {
+    "user_id": "demo-user",
+    "home_location": {
+      "city": "Regina",
+      "postal_prefix": null,
+      "latitude": null,
+      "longitude": null
+    },
+    "budget_sensitivity": "medium",
+    "budget_cad": 20
+  }
+]

@@ -1,0 +1,35 @@
+[
+  {
+    "product_id": "p1",
+    "certification_id": "cert-fair",
+    "status": "Claimed",
+    "source_id": "src-company-demo"
+  },
+  {
+    "product_id": "p2",
+    "certification_id": "cert-pack",
+    "status": "Verified",
+    "source_id": "src-cert-demo",
+    "demo_only": true
+  },
+  {
+    "product_id": "p3",
+    "certification_id": "cert-fair",
+    "status": "Expired",
+    "source_id": "src-synthetic"
+  },
+  {
+    "product_id": "p8",
+    "certification_id": "cert-fair",
+    "status": "Verified",
+    "source_id": "src-cert-demo",
+    "demo_only": true
+  },
+  {
+    "product_id": "p11",
+    "certification_id": "cert-pack",
+    "status": "Verified",
+    "source_id": "src-cert-demo",
+    "demo_only": true
+  }
+]

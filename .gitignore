@@ -7,3 +7,9 @@ __pycache__/
 *.csv
 *.db
 EOF
+node_modules/
+.venv/
+.env
+*.csv
+__pycache__/
+dist/

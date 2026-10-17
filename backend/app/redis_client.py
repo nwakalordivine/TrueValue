@@ -7,7 +7,7 @@ from redis.asyncio import Redis
 from app.config import settings
 
 log = logging.getLogger("truevalue.redis")
-redis: Redis | None = Redis.from_url(settings.REDIS_URL, decode_responses=True) if settings.REDIS_URL else None
+redis: Redis | None = Redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2, socket_timeout=2) if settings.REDIS_URL else None
 
 
 async def cache_get(key: str):

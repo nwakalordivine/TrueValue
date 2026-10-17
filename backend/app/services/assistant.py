@@ -6,6 +6,8 @@ The AI never produces scores or facts; it only understands the question and word
 """
 from __future__ import annotations
 
+import asyncio
+
 import hashlib
 import json
 import logging
@@ -166,17 +168,16 @@ def _dim_labels(ids: list[str]) -> list[str]:
     return [labels.get(i, i) for i in ids]
 
 
-# ---------- main entry ----------
 
 async def answer(message: str, client_weights: dict | None, location: dict | None) -> dict:
     c = catalog.get()
     rule = parser.rule_parse(message, c["products"])
     parsed = rule
-    if llm.enabled() and rule["intent"] != "barcode":
+    if llm.enabled() and rule["intent"] not in ("barcode", "dispose", "help"):
         key = "parse:" + hashlib.sha1(message.lower().strip().encode()).hexdigest()
         ai = await cache_get(key)
         if ai is None:
-            ai = await llm.complete_json(parser.LLM_SYSTEM, parser.llm_user_prompt(message, c["products"]))
+            ai = await llm.complete_json(parser.LLM_SYSTEM, parser.llm_user_prompt(message, c["products"]), budget=12)
             if ai:
                 await cache_set(key, ai, ttl=3600)
         parsed = parser.merge_llm(rule, ai, c["products"])
@@ -195,7 +196,6 @@ async def answer(message: str, client_weights: dict | None, location: dict | Non
     return out
 
 
-# ---------- intent handlers ----------
 
 async def _recommend(out, parsed, weights, location):
     c = catalog.get()
@@ -274,7 +274,7 @@ async def _where_to_buy(out, parsed, weights, location):
     if product:
         out["products"] = [product_card(product, weights)]
     try:
-        stores = await places.nearest_stores(loc["lat"], loc["lon"], category)
+        stores = await asyncio.wait_for(places.nearest_stores(loc["lat"], loc["lon"], category), timeout=22)
         error = None
     except Exception as exc:  # noqa: BLE001
         log.warning("store search failed: %s", exc)
@@ -312,7 +312,7 @@ async def _dispose(out, parsed, weights, location):
     out["disposal"] = guide
     if guide is None or guide["needs_drop_off"]:
         try:
-            spots = await places.nearest_drop_offs(loc["lat"], loc["lon"])
+            spots = await asyncio.wait_for(places.nearest_drop_offs(loc["lat"], loc["lon"]), timeout=22)
             error = None
         except Exception as exc:  # noqa: BLE001
             log.warning("drop-off search failed: %s", exc)
@@ -432,7 +432,6 @@ HANDLERS = {"recommend": _recommend, "compare": _compare, "explain": _explain, "
             "dispose": _dispose, "company_check": _company_check, "help": _help, "barcode": _barcode}
 
 
-# ---------- summary ----------
 
 SUMMARY_SYSTEM = """You write the reply for TrueValue, an honest ethical shopping assistant in Regina, Canada.
 You get the shopper's question and FACTS computed by the app. Write 1 to 3 short, friendly sentences in plain
@@ -460,7 +459,7 @@ async def _summarize(message: str, out: dict, template: str) -> tuple[str, bool]
     if not llm.enabled() or out["intent"] == "help":
         return template, False
     facts = _facts_for_llm(out, template)
-    ai = await llm.complete_json(SUMMARY_SYSTEM, f"Question: {message}\nFACTS: {json.dumps(facts)}", max_tokens=250)
+    ai = await llm.complete_json(SUMMARY_SYSTEM, f"Question: {message}\nFACTS: {json.dumps(facts)}", max_tokens=250, budget=12)
     text = (ai or {}).get("summary")
     if not isinstance(text, str) or not (20 <= len(text) <= 700):
         return template, False

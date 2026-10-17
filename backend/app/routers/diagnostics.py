@@ -51,6 +51,18 @@ async def _get(url, **kw):
     return f"HTTP {r.status_code}"
 
 
+async def _off_search(url, params, list_key):
+    """Same kind of request the app makes. Reports status, product count, or the start of the error."""
+    async with httpx.AsyncClient(headers=UA, timeout=LIMIT) as c:
+        r = await c.get(url, params=params)
+    ctype = r.headers.get("content-type", "")
+    if r.status_code != 200 or "json" not in ctype:
+        raise RuntimeError(f"HTTP {r.status_code}, {ctype or 'no content-type'}: {r.text[:150]!r}")
+    items = r.json().get(list_key) or []
+    first = items[0] if items else {}
+    return f"HTTP 200, {len(items)} products; first: {first.get('product_name')!r} ({first.get('code')})"
+
+
 async def _overpass(url):
     q = '[out:json][timeout:15];node["shop"="supermarket"](around:2000,50.4452,-104.6189);out 5;'
     async with httpx.AsyncClient(headers=UA, timeout=LIMIT) as c:
@@ -80,8 +92,17 @@ async def diagnostics():
         (f"AI fallback ({settings.LLM_MODEL_FALLBACK})", _openrouter(settings.LLM_MODEL_FALLBACK)),
         ("Open Food Facts barcode", _get("https://world.openfoodfacts.org/api/v2/product/3017620422003.json",
                                          params={"fields": "code"})),
-        ("Open Food Facts search", _get("https://search.openfoodfacts.org/search",
-                                        params={"q": "spring water", "page_size": 1})),
+        ("OFF search, OLD server, exactly what the app uses now", _off_search(
+            "https://world.openfoodfacts.org/cgi/search.pl",
+            {"search_terms": "black tea", "search_simple": 1, "action": "process", "json": 1, "page_size": 5,
+             "fields": "code,product_name", "sort_by": "unique_scans_n", "tagtype_0": "countries",
+             "tag_contains_0": "contains", "tag_0": "canada"}, "products")),
+        ("OFF search, NEW server", _off_search(
+            "https://search.openfoodfacts.org/search",
+            {"q": "black tea", "page_size": 5, "fields": "code,product_name"}, "hits")),
+        ("OFF search, NEW server, Canada only", _off_search(
+            "https://search.openfoodfacts.org/search",
+            {"q": 'black tea countries_tags:"en:canada"', "page_size": 5, "fields": "code,product_name"}, "hits")),
         ("Nominatim (map backup)", _get(places.NOMINATIM_URL, params={"q": "SARCAN Regina", "format": "jsonv2"})),
     ] + [(f"Overpass {u.split('/')[2]}", _overpass(u)) for u in places.OVERPASS_URLS]
     results = await asyncio.gather(*[_timed(n, c) for n, c in checks])

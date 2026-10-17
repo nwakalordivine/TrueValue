@@ -12,6 +12,7 @@ import hashlib
 import json
 import logging
 import math
+import time
 
 import httpx
 
@@ -21,13 +22,17 @@ log = logging.getLogger("truevalue.places")
 
 REGINA_CENTRE = (50.4452, -104.6189)  # City Hall, used when the browser gives no location
 OVERPASS_URLS = [
-    "https://overpass-api.de/api/interpreter",
+    # Order measured from Vercel with /api/diagnostics: private.coffee answered in ~1 s,
+    # overpass-api.de hung for 20 s, the other two returned 500/504. Fastest first.
     "https://overpass.private.coffee/api/interpreter",
-    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+    "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
 ]
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 USER_AGENT = "TrueValue/1.0 (Tech Skills Showcase 2026 demo)"
+# Total seconds we are willing to wait, so a busy map server can never stall a whole request
+OVERPASS_BUDGET = 14
+NOMINATIM_BUDGET = 8
 
 # Which OSM shop types plausibly sell each demo category
 CATEGORY_SHOPS = {
@@ -59,10 +64,15 @@ async def _overpass(query: str) -> list[dict]:
     cached = await cache_get(key)
     if cached is not None:
         return cached
-    async with httpx.AsyncClient(timeout=httpx.Timeout(18, connect=6), headers={"User-Agent": USER_AGENT}) as client:
+    deadline = time.monotonic() + OVERPASS_BUDGET
+    async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
         for url in OVERPASS_URLS:
+            remaining = deadline - time.monotonic()
+            if remaining < 2:
+                break  # out of time: let the caller use the Nominatim fallback
             try:
-                resp = await client.post(url, data={"data": query})
+                resp = await client.post(url, data={"data": query},
+                                         timeout=httpx.Timeout(min(8, remaining), connect=min(4, remaining)))
                 if resp.status_code == 200:
                     elements = resp.json().get("elements", [])
                     await cache_set(key, elements, ttl=6 * 3600)
@@ -82,11 +92,16 @@ async def _nominatim(terms: list[str], lat: float, lon: float, box: float = 0.12
         return cached
     out, seen = [], set()
     viewbox = f"{lon - box * 1.5},{lat + box},{lon + box * 1.5},{lat - box}"
-    async with httpx.AsyncClient(timeout=12, headers={"User-Agent": USER_AGENT}) as client:
+    deadline = time.monotonic() + NOMINATIM_BUDGET
+    async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
         for term in terms:
+            remaining = deadline - time.monotonic()
+            if remaining < 1.5:
+                break
             try:
                 resp = await client.get(NOMINATIM_URL, params={"q": term, "format": "jsonv2", "limit": 25,
-                                                               "viewbox": viewbox, "bounded": 1, "addressdetails": 1})
+                                                               "viewbox": viewbox, "bounded": 1, "addressdetails": 1},
+                                        timeout=min(5, remaining))
                 if resp.status_code != 200:
                     log.warning("Nominatim returned HTTP %s", resp.status_code)
                     continue

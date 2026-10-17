@@ -186,17 +186,35 @@ async def search(query: str, limit: int = 12) -> list[dict]:
     common = {"search_terms": q, "search_simple": 1, "action": "process", "json": 1,
               "page_size": limit, "fields": SEARCH_FIELDS, "sort_by": "unique_scans_n"}
     canada = {**common, "tagtype_0": "countries", "tag_contains_0": "contains", "tag_0": "canada"}
+    # Measured from Vercel with /api/diagnostics (Oct 2026): the classic cgi/search.pl returns HTTP 503
+    # (an HTML error page), while the newer search server answers in under 1 s, including the Canada filter.
+    # So the new server is used first; the classic one is only a last resort.
+    fast_url = "https://search.openfoodfacts.org/search"
+    fast_canada = {"q": f'{q} countries_tags:"en:canada"', "page_size": limit, "fields": SEARCH_FIELDS}
+    fast_world = {"q": q, "page_size": limit, "fields": SEARCH_FIELDS}
+
+    attempts = [(fast_url, fast_canada, "hits"), (fast_url, fast_world, "hits"), (base, canada, "products")]
     items: list[dict] = []
-    async with httpx.AsyncClient(timeout=httpx.Timeout(20, connect=6), headers={"User-Agent": USER_AGENT}) as client:
-        for params in (canada, common):
+    failures = 0
+    async with httpx.AsyncClient(timeout=httpx.Timeout(12, connect=5), headers={"User-Agent": USER_AGENT}) as client:
+        for url, params, list_key in attempts:
             if len(items) >= limit:
                 break
-            resp = await client.get(base, params=params)
-            resp.raise_for_status()
-            for p in resp.json().get("products", []):
+            try:
+                resp = await client.get(url, params=params)
+                resp.raise_for_status()
+                results = resp.json().get(list_key) or []
+            except (httpx.HTTPError, ValueError) as exc:
+                failures += 1
+                log.warning("Open Food Facts search %s failed: %s %s", url, type(exc).__name__, exc)
+                continue
+            for p in results:
                 item = _search_item(p)
                 if item and all(i["barcode"] != item["barcode"] for i in items):
                     items.append(item)
+    if not items and failures == len(attempts):
+        raise RuntimeError("Open Food Facts search unavailable")
     items = items[:limit]
-    await cache_set(key, items, ttl=6 * 3600)
+    if items:  # never cache an empty answer that might just be a busy server
+        await cache_set(key, items, ttl=6 * 3600)
     return items

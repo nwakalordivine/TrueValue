@@ -59,5 +59,5 @@ async def search_products(q: str, limit: int = 12):
         real = await openfoodfacts.search(q, max(1, min(limit, 24)))
         error = None
     except Exception:  # noqa: BLE001
-        real, error = [], "Open Food Facts search is busy right now. Try again, or scan the barcode."
+        real, error = [], "Product search is busy right now. Wait a few seconds and try again, or type the barcode instead."
     return {"query": q, "items": demo[:3] + real, "error": error}

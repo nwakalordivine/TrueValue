@@ -9,7 +9,7 @@ from app import models  # noqa: F401  registers tables before create_all
 from app.config import settings
 from app.database import Base, engine
 from app.redis_client import ping as redis_ping
-from app.routers import catalog as catalog_router, chat, companies, feedback, places
+from app.routers import catalog as catalog_router, chat, companies, diagnostics, feedback, places
 from app.services import catalog, llm, registry
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -40,7 +40,7 @@ origins = settings.cors_list
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials="*" not in origins,
                    allow_methods=["*"], allow_headers=["*"])
 
-for r in (catalog_router.router, chat.router, companies.router, places.router, feedback.router):
+for r in (catalog_router.router, chat.router, companies.router, places.router, feedback.router, diagnostics.router):
     app.include_router(r, prefix="/api")
 
 

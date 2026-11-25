@@ -1,0 +1,9 @@
+/* Compare page */
+.compare-table { min-width: 520px; }
+.compare-table thead th a { font-weight: var(--fw-semibold); color: var(--c-text); }
+.compare-table small { display: block; color: var(--c-muted); font-weight: var(--fw-regular); font-size: var(--fs-small); margin-top: var(--space-1); }
+.compare-table td { white-space: nowrap; }
+.cmp-total { display: block; font-size: var(--fs-h3); font-weight: var(--fw-semibold); margin-bottom: var(--space-1); }
+.cmp-total small { display: inline; margin: 0; }
+.cmp-score { font-weight: var(--fw-medium); font-variant-numeric: tabular-nums; margin-right: var(--space-1); }
+.compare-foot { margin: var(--space-3) 0 0; }

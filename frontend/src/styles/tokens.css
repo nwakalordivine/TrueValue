@@ -1,0 +1,84 @@
+/* TrueValue design tokens. Every other stylesheet uses these variables, never raw values.
+   Contrast (WCAG AA) was checked for every text/background pair listed here. */
+:root {
+  /* Type: one family, three weights */
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --fs-body: 14px;
+  --fs-small: 13px;
+  --fs-h3: 18px;
+  --fs-h2: 22px;
+  --fs-h1: 28px;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --lh-body: 1.5;
+  --lh-tight: 1.25;
+
+  /* Colour */
+  --c-bg: #FAFAF7;
+  --c-surface: #FFFFFF;
+  --c-surface-alt: #F3F2EE;
+  --c-text: #1A1A17;
+  --c-muted: #5E5D56;            /* 6.3:1 on bg */
+  --c-border: #E4E2DC;           /* hairlines between content */
+  --c-border-strong: #8C897F;    /* form controls: 3.3:1 on bg */
+  --c-brand: #1F5A3A;            /* primary actions and the active nav item only. White on it: 8.1:1 */
+  --c-brand-hover: #174A2F;
+  --c-brand-soft: #E8F0EA;
+  --c-on-brand: #FFFFFF;
+  --c-focus: #1F5A3A;
+  --c-backdrop: rgba(26, 26, 23, 0.45);
+  --c-scan-dim: rgba(0, 0, 0, 0.35);
+  --c-scan-guide: rgba(255, 255, 255, 0.85);
+  --c-scan-bg: #1A1A17;
+
+  /* Evidence and status (text on its own background, all 6.6:1 or better) */
+  --c-verified: #1F5A3A;
+  --c-verified-bg: #E6F0E9;
+  --c-claimed: #7A4A00;
+  --c-claimed-bg: #FBF0DA;
+  --c-unknown: #4A4943;
+  --c-unknown-bg: #EEEDE8;
+  --c-info: #23467E;
+  --c-info-bg: #E7EEF8;
+  --c-danger: #8C2A2A;
+  --c-danger-bg: #FBEAEA;
+
+  /* Shape and spacing (4px scale) */
+  --radius: 6px;
+  --radius-full: 999px;          /* avatars only */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --border: 1px solid var(--c-border);
+
+  /* Sizes */
+  --tap: 44px;
+  --icon-nav: 20px;
+  --icon-inline: 16px;
+  --avatar: 32px;
+  --topbar-h: 56px;
+  --sidebar-w: 240px;
+  --panel-w: 360px;
+  --content-max: 1120px;
+  --reading-max: 680px;
+
+  /* Layers and motion */
+  --z-topbar: 20;
+  --z-backdrop: 40;
+  --z-drawer: 50;
+  --z-modal: 60;
+  --dur: 200ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --fs-body: 15px;
+    --topbar-h: 0px;             /* no top bar on desktop */
+  }
+}

@@ -1,0 +1,11 @@
+/* Near me page */
+.near-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.near-controls { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; border-bottom: var(--border); margin-bottom: var(--space-4); }
+.near-controls .tabs { border-bottom: 0; margin-bottom: 0; }
+.near-category { padding-bottom: var(--space-2); }
+.near-grid { display: grid; gap: var(--space-4); }
+.near-grid .map { min-height: 280px; }
+@media (min-width: 1024px) {
+  .near-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; }
+  .near-grid .map { min-height: 480px; position: sticky; top: var(--space-8); }
+}

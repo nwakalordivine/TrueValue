@@ -6,7 +6,6 @@ dist/
 __pycache__/
 *.csv
 *.db
-EOF
 node_modules/
 .venv/
 .env

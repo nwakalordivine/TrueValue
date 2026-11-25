@@ -110,7 +110,7 @@ function render(res) {
         <div id="storeList"><p class="r-muted">Finding stores...</p></div>
       </section>
 
-      <p class="r-muted r-foot">${off ? 'Open Food Facts data comes from product labels and volunteers, so it is shown as Claimed.' : 'Demo product: its claims and prices are fictional.'} Scoring model ${esc(c.model_version)}. <a href="/#feedback">Report a problem</a></p>
+      <p class="r-muted r-foot">${off ? 'Open Food Facts data comes from product labels and volunteers, so it is shown as Claimed.' : 'Demo product: its claims and prices are fictional.'} Scoring model ${esc(c.model_version)}. <a href="${esc(`/?report=${encodeURIComponent(c.name)}&product=${encodeURIComponent(c.product_id || '')}#feedback`)}">Report a problem</a></p>
     </div>
     </div>`);
 

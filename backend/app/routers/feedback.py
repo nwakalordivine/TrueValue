@@ -11,16 +11,24 @@ router = APIRouter(prefix="/feedback", tags=["feedback"])
 
 @router.post("", status_code=201)
 async def create(body: FeedbackIn):
+    # The product name is free text (it may not be in the catalog). There is no column for it,
+    # so it is stored as the first line of the message.
+    product_name = (body.product_name or "").strip() or None
+    message = body.message.strip()
+    stored = f"Product: {product_name}\n{message}" if product_name else message
     async with SessionLocal() as db:
-        item = Feedback(product_id=body.product_id, issue=body.issue, message=body.message.strip())
+        item = Feedback(product_id=body.product_id, issue=body.issue, message=stored)
         db.add(item)
         await db.commit()
         await db.refresh(item)
-    product = catalog.product_by_id(body.product_id) if body.product_id else None
-    name = product["name"] if product else (body.product_id or "General")
+    if product_name:
+        name = product_name
+    else:
+        product = catalog.product_by_id(body.product_id) if body.product_id else None
+        name = product["name"] if product else (body.product_id or "General")
     emailed = await mailer.send(
         f"TrueValue feedback #{item.id}: {body.issue} ({name})",
-        f"Product: {name} ({body.product_id or 'none'})\nIssue: {body.issue}\n\n{body.message}\n\n"
+        f"Product: {name} ({body.product_id or 'none'})\nIssue: {body.issue}\n\n{message}\n\n"
         f"Status: pending review. Saved as feedback #{item.id}.")
     return {"id": item.id, "status": item.status, "emailed": emailed}
 

@@ -18,5 +18,6 @@ class ChatIn(BaseModel):
 
 class FeedbackIn(BaseModel):
     product_id: str | None = Field(default=None, max_length=64)
+    product_name: str | None = Field(default=None, max_length=120)
     issue: str = Field(min_length=1, max_length=64)
     message: str = Field(min_length=1, max_length=1000)

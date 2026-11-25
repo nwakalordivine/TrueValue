@@ -25,6 +25,9 @@ let products = fbProducts, claims = fbClaims, dimensions = fbDimensions, prices 
 let online = false;
 
 const state = { user: loadUser(users[0], priorityWeights) };
+// A result page's "Report a problem" link opens /?report=<name>&product=<id>#feedback
+const params = new URLSearchParams(location.search);
+const report = { name: (params.get('report') || '').trim().slice(0, 120), id: params.get('product') || '' };
 const $ = s => document.querySelector(s);
 const priceFor = p => { const obs = prices.filter(o => o.product_id === p.product_id); return obs.length ? Math.min(...obs.map(o => o.price)) : null; };
 const match = p => calculateMatch(p, dimensions, state.user.weights, claims, state.user.user_id);
@@ -103,7 +106,7 @@ content.innerHTML = `
       <p>Found a wrong claim or a missing source? It goes to the TrueValue team for review. It never changes a score automatically.</p>
     </div>
     <form id="feedbackForm" class="panel feedback-form">
-      <label>Product <select name="product" id="feedbackProduct"></select></label>
+      <label>Product (optional) <input type="text" name="product_name" id="feedbackProduct" maxlength="120" autocomplete="off" placeholder="Product name or barcode"></label>
       <label>Issue
         <select name="issue">
           <option value="incorrect-claim">Incorrect claim</option>
@@ -130,7 +133,6 @@ function renderStatic() {
       <output for="w-${esc(d.dimension_id)}" data-output="${esc(d.dimension_id)}">${esc(v)}</output>
     </div>`;
   }).join('');
-  $('#feedbackProduct').innerHTML = products.map(p => `<option value="${esc(p.product_id)}">${esc(p.name)}</option>`).join('');
 }
 
 function render() {
@@ -234,10 +236,15 @@ function wire() {
   });
   $('#budget').addEventListener('input', e => { state.user.budget_cad = Math.max(0, Number(e.target.value) || 0); autosave(); });
   wireCompareButtons(onCompare);
+  if (report.name) $('#feedbackProduct').value = report.name;
   $('#feedbackForm').addEventListener('submit', async e => {
     e.preventDefault();
     const form = new FormData(e.target); const message = String(form.get('message') || '').trim(); if (!message) return;
-    const record = { product_id: form.get('product'), issue: form.get('issue'), message };
+    const name = String(form.get('product_name') || '').trim();
+    const record = { issue: form.get('issue'), message };
+    if (name) record.product_name = name;
+    // Send the catalog id only when the name is still the one the result page filled in
+    if (report.id && name && name === report.name) record.product_id = report.id;
     try { const r = await api.feedback(record); $('#feedbackStatus').textContent = r.emailed ? 'Thanks. Your report was sent to the TrueValue team.' : 'Thanks. Your report was saved for review.'; }
     catch { saveFeedback(record); $('#feedbackStatus').textContent = 'The server is unavailable, so your report was saved in this browser for later review.'; }
     e.target.reset();

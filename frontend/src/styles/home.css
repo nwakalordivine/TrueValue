@@ -112,6 +112,24 @@
 .feedback-form p { margin: 0; }
 .page-foot { border-top: var(--border); padding-top: var(--space-4); margin: 0; }
 
+/* Team cards (About). A photo covers the initials circle; if the photo is missing the initials show. */
+.about-text { max-width: var(--reading-max); }
+.team-title { font-size: var(--fs-body); margin: var(--space-6) 0 var(--space-3); }
+.team-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-3); }
+.team-card { display: grid; align-content: start; gap: var(--space-1); padding: var(--space-3); background: var(--c-surface); border: var(--border); border-radius: var(--radius); }
+.team-photo { display: grid; place-items: center; aspect-ratio: 1; margin-bottom: var(--space-2); border-radius: var(--radius); background: var(--c-surface-alt); overflow: hidden; }
+.team-photo > * { grid-area: 1 / 1; }
+.team-photo img { width: 100%; height: 100%; object-fit: cover; }
+.team-initials {
+  display: grid; place-items: center; width: 56%; aspect-ratio: 1; border-radius: var(--radius-full);
+  background: var(--c-surface); border: 1px solid var(--c-border-strong); color: var(--c-muted);
+  font-size: var(--fs-h2); font-weight: var(--fw-semibold); letter-spacing: 0.02em;
+}
+.team-name { margin: 0; font-weight: var(--fw-semibold); }
+.team-role { margin: 0; color: var(--c-muted); font-size: var(--fs-small); }
+.team-link { justify-self: start; margin-left: calc(-1 * var(--space-3)); color: var(--c-text); }
+.team-link:hover { color: var(--c-brand); }
+
 @media (min-width: 768px) {
   .products-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .slider-row { grid-template-columns: minmax(200px, 1fr) minmax(140px, 1fr) 44px; }

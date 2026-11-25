@@ -7,6 +7,14 @@ import {
   Building, Sparkles, Send, CircleCheck, MessageSquareExclamationPoint, Store,
 } from 'lucide';
 
+// Lucide no longer ships brand icons, so LinkedIn is drawn here in the same outline style
+// (the shape lucide used before it removed brand icons; lucide is ISC licensed).
+const LinkedIn = [
+  ['path', { d: 'M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z' }],
+  ['rect', { width: '4', height: '12', x: '2', y: '9' }],
+  ['circle', { cx: '4', cy: '4', r: '2' }],
+];
+
 const ICONS = {
   home: House, assistant: MessageCircle, compare: Columns2, pin: MapPin, info: Info, menu: Menu, close: X,
   user: UserRound, login: LogIn, flag: Flag, handshake: Handshake, paw: PawPrint, leaf: Leaf, package: Package,
@@ -14,7 +22,7 @@ const ICONS = {
   clock: Clock, search: Search, camera: Camera, upload: ImageUp, scan: ScanLine, check: Check, back: ChevronLeft,
   next: ChevronRight, plus: Plus, cart: ShoppingCart, locate: LocateFixed, warning: TriangleExclamationPoint,
   building: Building, sparkles: Sparkles, send: Send, ok: CircleCheck, report: MessageSquareExclamationPoint,
-  store: Store,
+  store: Store, linkedin: LinkedIn,
 };
 
 // One icon per value (replaces the emoji stored in ethicalDimensions.json)

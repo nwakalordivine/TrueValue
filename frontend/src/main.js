@@ -8,6 +8,8 @@ import fbDimensions from './data/ethicalDimensions.json';
 import fbPrices from './data/priceObservations.json';
 import users from './data/userProfiles.json';
 import priorityWeights from './data/priorityWeights.json';
+import team from './data/team.json';
+import { teamCards, wireTeamPhotos } from './components/team.js';
 import { api } from './api.js';
 import { calculateMatch, rankProducts } from './services/scoringService.js';
 import { loadUser, saveUser } from './services/customerValuesService.js';
@@ -98,13 +100,6 @@ content.innerHTML = `
     <p class="finder-status" role="status" data-compare-status></p>
   </section>
 
-  <section class="section about" id="about" aria-labelledby="aboutTitle">
-    <div class="section-head">
-      <h2 id="aboutTitle">About TrueValue</h2>
-      <p>TrueValue helps shoppers in Regina buy products that match their own values, and shows the evidence behind every score.</p>
-    </div>
-  </section>
-
   <section class="section" id="feedback" aria-labelledby="feedbackTitle">
     <div class="section-head">
       <h2 id="feedbackTitle">Report a problem</h2>
@@ -126,8 +121,19 @@ content.innerHTML = `
     </form>
   </section>
 
+  <section class="section about" id="about" aria-labelledby="aboutTitle">
+    <div class="section-head">
+      <h2 id="aboutTitle">About TrueValue</h2>
+      <p>TrueValue helps shoppers in Regina buy products that match their own values, and shows the evidence behind every score.</p>
+    </div>
+    <p class="about-text">We built TrueValue for the Tech Skills Showcase 2026, run by the Regina Open Door Society, as our answer to the Ethical Consumer Compass challenge. Prices are easy to compare; values are not. TrueValue shows how well a product fits what you care about, such as Canadian ownership, fair trade and packaging, and labels each fact as Verified, Claimed or Unknown so you can see how sure it is.</p>
+    <h3 class="team-title">The team</h3>
+    ${teamCards(team)}
+  </section>
+
   <footer class="page-foot muted">TrueValue, a Tech Skills Showcase 2026 prototype. Real data: Open Food Facts, OpenStreetMap, Corporations Canada and City of Regina recycling rules.</footer>
 </div>`;
+wireTeamPhotos($('#about'));
 
 function renderStatic() {
   $('#sliders').innerHTML = dimensions.map(d => {

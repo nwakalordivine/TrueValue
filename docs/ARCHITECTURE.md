@@ -175,6 +175,30 @@ Everything else in section 1 of the brief matches the code: the pages, the servi
 - **One render path for the sliders.** `main.js` keeps the weights in `state.user` and saves them with `saveUser`. The result page, chat and compare read them once at load. Phase 4's "Loaded your saved values" has to update the sliders and re-render, so values must have a single place that renders them.
 - **Removing "Type barcode".** It shares `#scannerStatus` and the tab-switching code with the other modes. Remove it carefully so scan, upload and search keep working. The chat page still accepts a pasted barcode, and `/api/barcode` stays.
 
-## 7. Token storage note
+## 7. Authentication (Phase 3)
 
-(Filled in during Phase 3.) Today the frontend and backend run on different Vercel domains. Sharing httpOnly cookies across sites needs `SameSite=None; Secure`, which Safari often blocks. So the access token travels in the `Authorization: Bearer` header and the refresh token in the request body, and the frontend keeps both in localStorage. If the API is later served from `api.mytruevalue.net` (same site as `mytruevalue.net`), we could move the refresh token into an httpOnly, `SameSite=Lax` cookie.
+Passwordless sign-in. The logic lives in `backend/app/services/auth.py`, and the endpoints are in `routers/auth.py` and `routers/me.py`.
+
+1. `POST /api/auth/request-code {email, username}`: emails a 6-digit code using `mailer.send_to`. The username is needed only for a new email.
+2. `POST /api/auth/verify-code {email, code, username?}`: checks the code, creates the user if they are new, and returns `{access_token, refresh_token, user}`.
+3. The access token (JWT HS256, `ACCESS_TOKEN_MINUTES`) goes in `Authorization: Bearer` for `/api/me/*`. When it expires, `POST /api/auth/refresh {refresh_token}` returns a new pair and revokes the old refresh token (rotation). Reusing a revoked refresh token revokes all of that user's sessions.
+4. `POST /api/auth/logout {refresh_token}` revokes it.
+
+New tables, created by `create_all`:
+- `users`: id, email (unique, lowercase), username, avatar_url, avatar_public_id, preferences, timestamps.
+- `email_codes`: only an HMAC-SHA256 of the code, keyed with `JWT_SECRET`. Each code has an expiry, an attempts count (at most 5) and `used_at`.
+- `refresh_tokens`: jti, user_id, expires_at, revoked_at.
+
+Limits:
+- 1 code per email per minute and 5 per hour, in Redis and also counted in the database, so the limit holds without Redis.
+- 10 verify attempts per IP per 10 minutes, in Redis.
+
+New settings:
+- `JWT_SECRET`: without it, the auth and `/me` endpoints answer 503 and the rest of the app works.
+- `ACCESS_TOKEN_MINUTES`, `REFRESH_TOKEN_DAYS` and `LOGIN_CODE_MINUTES`.
+- `CLOUDINARY_URL`, for profile pictures.
+- `ADMIN_EMAILS`: the signed-in users who may read `GET /api/feedback`. Everyone else gets 401 or 403. Sending feedback stays open.
+
+### Token storage note
+
+Today the frontend and backend run on different Vercel domains, and that sets how the tokens are stored. Sharing httpOnly cookies across sites needs `SameSite=None; Secure`, which Safari often blocks. So the access token travels in the `Authorization: Bearer` header and the refresh token in the request body, and the frontend keeps both in localStorage. If the API is later served from `api.mytruevalue.net` (same site as `mytruevalue.net`), we could move the refresh token into an httpOnly, `SameSite=Lax` cookie.

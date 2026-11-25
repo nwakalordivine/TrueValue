@@ -1,10 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 
 from app.models import Feedback
 from app.schemas import FeedbackIn
 from app.database import SessionLocal
 from app.services import catalog, mailer
+from app.services.auth import require_admin
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 
@@ -33,8 +34,9 @@ async def create(body: FeedbackIn):
     return {"id": item.id, "status": item.status, "emailed": emailed}
 
 
-@router.get("")
+@router.get("", dependencies=[Depends(require_admin)])
 async def recent(limit: int = 20):
+    """Only signed-in admins (ADMIN_EMAILS) may read feedback: 401 when signed out, 403 when not an admin."""
     async with SessionLocal() as db:
         rows = (await db.scalars(select(Feedback).order_by(Feedback.id.desc()).limit(min(limit, 100)))).all()
     return [{"id": r.id, "product_id": r.product_id, "issue": r.issue, "message": r.message,

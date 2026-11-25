@@ -56,7 +56,7 @@ async def search_products(q: str, limit: int = 12):
             for p in catalog.get()["products"]
             if all(w in f"{p['name']} {p.get('brand', '')} {p.get('category', '')}".lower() for w in words)]
     try:
-        real = await openfoodfacts.search(q, max(1, min(limit, 24)))
+        real = await openfoodfacts.search(q, max(1, min(limit, 48)))
         error = None
     except Exception:  # noqa: BLE001
         real, error = [], "Product search is busy right now. Wait a few seconds and try again, or scan the barcode instead."

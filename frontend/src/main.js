@@ -57,9 +57,9 @@ content.innerHTML = `
       </div>
       <div class="panel finder">
         <div class="tabs" role="tablist" aria-label="How to find a product">
-          <button type="button" role="tab" class="tab" id="tab-scan" aria-controls="panel-scan" aria-selected="true" data-mode="scan">${icon('camera')}Scan<span class="tab-more"> barcode</span></button>
-          <button type="button" role="tab" class="tab" id="tab-upload" aria-controls="panel-upload" aria-selected="false" data-mode="upload">${icon('upload')}Upload<span class="tab-more"> photo</span></button>
-          <button type="button" role="tab" class="tab" id="tab-search" aria-controls="panel-search" aria-selected="false" data-mode="search">${icon('search')}Search<span class="tab-more"> by name</span></button>
+          <button type="button" role="tab" class="tab" id="tab-scan" aria-controls="panel-scan" aria-selected="true" data-mode="scan">${icon('camera')}<span class="tab-label">Scan<span class="tab-more"> barcode</span></span></button>
+          <button type="button" role="tab" class="tab" id="tab-upload" aria-controls="panel-upload" aria-selected="false" data-mode="upload">${icon('upload')}<span class="tab-label">Upload<span class="tab-more"> photo</span></span></button>
+          <button type="button" role="tab" class="tab" id="tab-search" aria-controls="panel-search" aria-selected="false" data-mode="search">${icon('search')}<span class="tab-label">Search<span class="tab-more"> by name</span></span></button>
         </div>
         <div class="mode-panel" id="panel-scan" role="tabpanel" aria-labelledby="tab-scan">
           <div id="barcode-reader" class="barcode-reader"></div>
@@ -76,7 +76,12 @@ content.innerHTML = `
             <input id="searchInput" type="search" autocomplete="off" placeholder="Product or brand, e.g. peanut butter, oat milk">
             <button type="submit" class="button">${icon('search')}Search</button>
           </form>
-          <div id="searchResults" class="search-results"></div>
+          <div id="searchArea" class="search-area" hidden>
+            <h3 id="resultsTitle" class="results-title" tabindex="-1"></h3>
+            <p id="searchSummary" class="muted" role="status"></p>
+            <div id="searchResults" class="search-results"></div>
+            <nav id="searchPager" class="pager" aria-label="Search result pages"></nav>
+          </div>
         </div>
         <p id="scannerStatus" role="status" class="finder-status" data-compare-status></p>
         <p id="apiStatus" class="muted"></p>
@@ -188,27 +193,100 @@ function wireFinder() {
     if (tab.dataset.mode === 'search') $('#searchInput').focus();
   });
   $('#searchForm').addEventListener('submit', e => { e.preventDefault(); searchProducts($('#searchInput').value); });
+  wireResults();
+}
+
+// Search results are fetched once (up to 48) and paged here, without calling the backend again.
+const results = { query: '', items: [], page: 1, seq: 0 };
+const wide = matchMedia('(min-width: 768px)');
+const perPage = () => (wide.matches ? 8 : 6);
+const pageCount = () => Math.max(1, Math.ceil(results.items.length / perPage()));
+
+function searchItem(i) {
+  const demo = i.source === 'demo';
+  const href = demo ? `/result.html?product=${encodeURIComponent(i.product_id)}` : `/result.html?barcode=${encodeURIComponent(i.barcode)}`;
+  const details = [i.brand, i.quantity].filter(Boolean).join(' · ');
+  return `<article class="search-item">
+    ${i.image ? `<img class="thumb" src="${esc(i.image)}" alt="" loading="lazy">` : `<div class="thumb">${icon('package', 24)}</div>`}
+    <div><strong>${esc(i.name)}</strong><small>${details ? esc(details) : 'Brand not listed'}</small>
+      <small>${demo ? 'Demo product' : (i.sold_in_canada ? 'Sold in Canada · ' : '') + 'Open Food Facts'}</small></div>
+    <div class="search-actions"><a class="button small" href="${href}">See result</a>${compareButton(demo ? 'product' : 'barcode', demo ? i.product_id : i.barcode, i.name)}</div>
+  </article>`;
+}
+
+// Page numbers to show: all of them up to 7, otherwise first, last and the current page with its neighbours.
+function pageList(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const keep = [...new Set([1, current - 1, current, current + 1, total])].filter(n => n >= 1 && n <= total).sort((a, b) => a - b);
+  return keep.flatMap((n, i) => (i && n - keep[i - 1] > 1 ? ['gap', n] : [n]));
+}
+
+function pagerView(page, total) {
+  if (total <= 1) return '';
+  const nums = pageList(page, total).map(n => n === 'gap'
+    ? '<span class="pager-gap" aria-hidden="true">…</span>'
+    : `<button type="button" class="button secondary pager-num" data-page="${n}" aria-label="Page ${n}"${n === page ? ' aria-current="page"' : ''}>${n}</button>`).join('');
+  return `<button type="button" class="button secondary pager-step" data-page="${page - 1}" aria-label="Previous page"${page === 1 ? ' disabled' : ''}>${icon('back')}Previous</button>
+    <div class="pager-pages">${nums}</div>
+    <button type="button" class="button secondary pager-step" data-page="${page + 1}" aria-label="Next page"${page === total ? ' disabled' : ''}>Next${icon('next')}</button>`;
+}
+
+function renderResults() {
+  const n = results.items.length;
+  $('#searchArea').hidden = n === 0;
+  if (!n) return;
+  const total = pageCount();
+  results.page = Math.min(Math.max(1, results.page), total);
+  const start = (results.page - 1) * perPage(), shown = results.items.slice(start, start + perPage());
+  $('#resultsTitle').textContent = `Results for "${results.query}"`;
+  $('#searchSummary').textContent = `Showing ${start + 1} to ${start + shown.length} of ${n} result${n === 1 ? '' : 's'}. Products sold in Canada are listed first.`;
+  $('#searchResults').innerHTML = shown.map(searchItem).join('');
+  const pager = $('#searchPager');
+  pager.innerHTML = pagerView(results.page, total);
+  pager.hidden = total <= 1;
+}
+
+function goToPage(page) {
+  results.page = page;
+  renderResults();
+  // Bring the list (not the whole page) back into view, and move focus to its heading for keyboard and screen reader users
+  $('#resultsTitle').focus({ preventScroll: true });
+  const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  $('#searchArea').scrollIntoView({ block: 'start', behavior: smooth ? 'smooth' : 'auto' });
+}
+
+function wireResults() {
+  $('#searchPager').addEventListener('click', e => {
+    const btn = e.target.closest('button[data-page]');
+    if (!btn || btn.disabled) return;
+    const page = Number(btn.dataset.page);
+    if (page !== results.page) goToPage(page);
+  });
+  // Crossing 768px changes the page size: stay on the page that holds the first result you were looking at
+  wide.addEventListener('change', e => {
+    if (!results.items.length) return;
+    const first = (results.page - 1) * (e.matches ? 6 : 8);
+    results.page = Math.floor(first / perPage()) + 1;
+    renderResults();
+  });
 }
 
 async function searchProducts(query) {
-  const status = $('#scannerStatus'), out = $('#searchResults');
-  if (query.trim().length < 2) { status.textContent = 'Type at least two letters.'; return; }
+  const status = $('#scannerStatus');
+  query = query.trim();
+  if (query.length < 2) { status.textContent = 'Type at least two letters.'; return; }
   if (!online) { status.textContent = 'Start the backend to search products.'; return; }
-  status.textContent = `Searching for "${query}"...`; out.innerHTML = '';
+  status.textContent = `Searching for "${query}"...`;
+  const seq = ++results.seq; // a slow earlier search must not replace a newer one
+  Object.assign(results, { query, items: [], page: 1 });
+  renderResults();
   try {
     const res = await api.search(query);
-    status.textContent = res.error || (res.items.length ? `${res.items.length} products found. Products sold in Canada are listed first.` : 'No products found. Try fewer or different words, or scan the barcode.');
-    out.innerHTML = res.items.map(i => {
-      const demo = i.source === 'demo';
-      const href = demo ? `/result.html?product=${encodeURIComponent(i.product_id)}` : `/result.html?barcode=${encodeURIComponent(i.barcode)}`;
-      return `<article class="search-item">
-        ${i.image ? `<img class="thumb" src="${esc(i.image)}" alt="" loading="lazy">` : `<div class="thumb">${icon('package', 24)}</div>`}
-        <div><strong>${esc(i.name)}</strong><small>${esc([i.brand, i.quantity].filter(Boolean).join(' · '))}</small>
-          <small>${demo ? 'Demo product' : (i.sold_in_canada ? 'Sold in Canada · ' : '') + 'Open Food Facts'}</small></div>
-        <div class="search-actions"><a class="button small" href="${href}">See result</a>${compareButton(demo ? 'product' : 'barcode', demo ? i.product_id : i.barcode, i.name)}</div>
-      </article>`;
-    }).join('');
-  } catch (e) { status.textContent = e.message; }
+    if (seq !== results.seq) return;
+    results.items = res.items || [];
+    status.textContent = res.error || (results.items.length ? '' : 'No products found. Try fewer or different words, or scan the barcode.');
+    renderResults();
+  } catch (e) { if (seq === results.seq) status.textContent = e.message; }
 }
 
 // ----- compare: the buttons add to the tray; the table is on /compare.html -----

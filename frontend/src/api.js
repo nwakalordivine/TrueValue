@@ -36,7 +36,7 @@ export const api = {
   stores: (lat, lon, category) => request(`/api/places/stores?${q({ lat, lon, category })}`, { timeout: 45000 }),
   dropOffs: (lat, lon) => request(`/api/places/drop-offs?${q({ lat, lon })}`, { timeout: 45000 }),
   barcode: (barcode, weights) => request('/api/barcode', { method: 'POST', body: { barcode, weights }, timeout: 30000 }),
-  search: query => request(`/api/search?${q({ q: query })}`, { timeout: 45000 }),
+  search: (query, limit = 48) => request(`/api/search?${q({ q: query, limit })}`, { timeout: 45000 }),
   companies: query => request(`/api/companies/search?${q({ q: query })}`),
   chat: (message, weights, location) => request('/api/chat', {
     method: 'POST', timeout: 60000,

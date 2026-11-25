@@ -54,6 +54,26 @@ def _clean_tags(tags) -> list[str]:
     return [t.split(":", 1)[-1].replace("-", " ") for t in (tags or [])]
 
 
+_LANG_PREFIX = re.compile(r"^[a-z]{2,3}:")
+
+
+def clean_brand(raw) -> str | None:
+    """First brand from the brands field, without tag syntax: 'xx:al-janoub-stores' -> 'Al Janoub Stores'.
+
+    Hyphens are only replaced in tag-style values (the ones with a language prefix), so real
+    brand names such as 'Coca-Cola' keep theirs. Words are capitalised only if it is all lowercase.
+    """
+    if isinstance(raw, list):
+        raw = ", ".join(str(b) for b in raw)
+    brand = (raw or "").split(",")[0].strip()
+    if _LANG_PREFIX.match(brand):
+        brand = _LANG_PREFIX.sub("", brand).replace("-", " ")
+    brand = " ".join(brand.split())
+    if brand and brand == brand.lower():
+        brand = " ".join(w[:1].upper() + w[1:] for w in brand.split())
+    return brand or None
+
+
 def _materials(p: dict) -> list[str]:
     out = []
     for item in p.get("packagings") or []:
@@ -142,7 +162,7 @@ def to_truevalue(p: dict) -> tuple[dict, list[dict], dict]:
     claims = [_claim(pid, d, s, t) for d, (s, t) in dims.items()]
     name = p.get("product_name") or p.get("product_name_en") or "Unnamed product"
     product = {
-        "product_id": pid, "barcode": code, "name": name, "brand": (p.get("brands") or "").split(",")[0].strip() or None,
+        "product_id": pid, "barcode": code, "name": name, "brand": clean_brand(p.get("brands")),
         "company_id": None, "category": category,
         "country_of_manufacture": made or None,
         "country_of_origin_components": [f"Origins: {origins}"] if origins else [],
@@ -167,10 +187,7 @@ def _search_item(p: dict) -> dict | None:
     name = p.get("product_name") or p.get("product_name_en")
     if not code or not name:
         return None
-    brands = p.get("brands") or ""
-    if isinstance(brands, list):
-        brands = ", ".join(brands)
-    return {"barcode": code, "name": name.strip(), "brand": brands.split(",")[0].strip() or None,
+    return {"barcode": code, "name": name.strip(), "brand": clean_brand(p.get("brands")),
             "quantity": p.get("quantity"), "image": p.get("image_front_small_url"),
             "sold_in_canada": "en:canada" in (p.get("countries_tags") or []), "source": "openfoodfacts"}
 

@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from app.services import disposal, parser, scoring
+from app.services.openfoodfacts import clean_brand
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 load = lambda n: json.loads((DATA / f"{n}.json").read_text(encoding="utf-8"))
@@ -79,6 +80,26 @@ class Disposal(unittest.TestCase):
         self.assertEqual(disposal.classify("Aluminum can")["bin"], "sarcan_refund")
         self.assertEqual(disposal.classify("Cardboard box")["bin"], "blue_cart")
         self.assertEqual(disposal.classify("Paper wrapper")["bin"], "blue_cart")
+
+
+class Brands(unittest.TestCase):
+    def test_tag_prefix_and_hyphens_removed(self):
+        self.assertEqual(clean_brand("xx:Folgers"), "Folgers")
+        self.assertEqual(clean_brand("en:nestle"), "Nestle")
+        self.assertEqual(clean_brand("xx:al-janoub-stores"), "Al Janoub Stores")
+
+    def test_first_brand_only(self):
+        self.assertEqual(clean_brand("Kraft Heinz, Kraft"), "Kraft Heinz")
+        self.assertEqual(clean_brand(["en:nestle", "Other"]), "Nestle")
+
+    def test_real_names_kept(self):
+        self.assertEqual(clean_brand("Coca-Cola"), "Coca-Cola")
+        self.assertEqual(clean_brand("M&M's"), "M&M's")
+
+    def test_empty(self):
+        self.assertIsNone(clean_brand(""))
+        self.assertIsNone(clean_brand(None))
+        self.assertIsNone(clean_brand(" , Other"))
 
 
 if __name__ == "__main__":

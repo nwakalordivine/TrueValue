@@ -4,11 +4,12 @@ import { esc } from './views.js';
 import { icon } from './icons.js';
 import { toggle, inTray } from '../services/compareTray.js';
 
-const label = on => on ? `${icon('check')}In compare` : `${icon('plus')}Compare`;
+// The text sits in a span so narrow layouts can show the icon only; the aria-label keeps the button named.
+const label = on => on ? `${icon('check')}<span class="btn-text">In compare</span>` : `${icon('plus')}<span class="btn-text">Compare</span>`;
 
 export function compareButton(kind, id, name) {
   const on = inTray(kind, id);
-  return `<button type="button" class="button secondary small compare-btn ${on ? 'on' : ''}" aria-pressed="${on}" data-compare-kind="${esc(kind)}" data-compare-id="${esc(id)}" data-compare-name="${esc(name)}">${label(on)}</button>`;
+  return `<button type="button" class="button secondary small compare-btn ${on ? 'on' : ''}" aria-pressed="${on}" aria-label="Compare ${esc(name)}" data-compare-kind="${esc(kind)}" data-compare-id="${esc(id)}" data-compare-name="${esc(name)}">${label(on)}</button>`;
 }
 
 export const notifyCompareChanged = () => window.dispatchEvent(new Event('truevalue:compare'));

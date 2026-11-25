@@ -45,27 +45,51 @@
 #apiStatus { margin: var(--space-2) 0 0; }
 
 .search-results { display: grid; margin-top: var(--space-3); }
-.search-item { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: var(--space-3); align-items: center; padding: var(--space-3) 0; border-bottom: var(--border); }
+/* Compact rows. --row-pad is set by fitRows() in main.js so the list fills the space exactly. */
+.search-item {
+  position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: var(--space-3); align-items: center;
+  padding: var(--row-pad, var(--space-2)) var(--space-2); border-bottom: var(--border);
+}
 .search-item:last-child { border-bottom: 0; }
-.search-item .thumb { width: 48px; height: 48px; }
-.search-item strong { display: block; font-weight: var(--fw-medium); }
-.search-item small { display: block; color: var(--c-muted); }
-.search-actions { grid-column: 1 / -1; display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.search-item:hover, .search-item:focus-within { background: var(--c-surface-alt); }
+.search-item .thumb { width: 40px; height: 40px; }
+.search-text { min-width: 0; }
+.search-name {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+  font-weight: var(--fw-medium); line-height: var(--lh-tight);
+}
+.search-meta { display: block; color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.search-actions { display: flex; gap: var(--space-2); }
+.search-actions .button { min-height: 32px; padding: 0 var(--space-2); gap: var(--space-1); }
+/* The See result link covers the whole row; Compare sits above it so it never opens the result */
+.see-result::after { content: ''; position: absolute; inset: 0; }
+.search-actions .compare-btn { position: relative; z-index: 1; }
+.search-probe { position: absolute; left: 0; right: 0; top: 0; visibility: hidden; pointer-events: none; }
+@media (max-width: 399px) {
+  .search-actions .btn-text { display: none; }
+  .search-actions .button { width: 32px; padding: 0; }
+}
 
 /* Search results heading, summary and pages */
-.search-area { margin-top: var(--space-4); }
+.search-area { position: relative; margin-top: var(--space-4); }
 .results-title { font-size: var(--fs-body); font-weight: var(--fw-semibold); margin: 0 0 var(--space-1); }
 .results-title:focus { outline: none; }
 .results-title:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
 .search-area #searchSummary { margin: 0; }
-.pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); margin-top: var(--space-4); padding-top: var(--space-3); border-top: var(--border); }
-.pager-pages { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
-.pager-num { min-width: 40px; padding: 0 var(--space-2); font-variant-numeric: tabular-nums; }
+/* One line, always: [Previous] [page numbers] [Next] */
+.pager { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: var(--space-2); margin-top: var(--space-3); padding-top: var(--space-3); border-top: var(--border); }
+.pager-pages { display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; }
+.pager .button { gap: var(--space-1); white-space: nowrap; }
+.pager-num { min-width: 36px; padding: 0 var(--space-1); font-variant-numeric: tabular-nums; }
 .pager-num[aria-current=page] { background: var(--c-brand-soft); border-color: var(--c-brand); color: var(--c-brand); }
-.pager-step { padding: 0 var(--space-3); }
-.pager-gap { min-width: 16px; text-align: center; color: var(--c-muted); }
-@media (max-width: 559px) {
-  .pager-pages { order: -1; flex-basis: 100%; justify-content: center; }
+.pager-step { padding: 0 var(--space-2); }
+.pager-gap { min-width: 12px; text-align: center; color: var(--c-muted); }
+.pager-text { display: none; color: var(--c-muted); font-size: var(--fs-small); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* A narrow finder: "Page 2 of 9" between icon-only Previous and Next */
+@container (max-width: 359px) {
+  .pager-pages, .pager-label { display: none; }
+  .pager-text { display: inline; }
+  .pager-step { width: 36px; padding: 0; }
 }
 
 /* Demo products */
@@ -88,10 +112,6 @@
 .feedback-form p { margin: 0; }
 .page-foot { border-top: var(--border); padding-top: var(--space-4); margin: 0; }
 
-@media (min-width: 560px) {
-  .search-item { grid-template-columns: 48px minmax(0, 1fr) auto; }
-  .search-actions { grid-column: auto; justify-content: flex-end; }
-}
 @media (min-width: 768px) {
   .products-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .slider-row { grid-template-columns: minmax(200px, 1fr) minmax(140px, 1fr) 44px; }

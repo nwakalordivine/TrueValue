@@ -10,9 +10,11 @@ function card(member) {
       <span class="team-initials" aria-hidden="true">${esc(initials(member.name))}</span>
       ${member.photo ? `<img src="${esc(member.photo)}" alt="Portrait of ${esc(member.name)}" loading="lazy" width="320" height="320">` : ''}
     </div>
-    <p class="team-name">${esc(member.name)}</p>
+    <div class="team-head">
+      <p class="team-name">${esc(member.name)}</p>
+      ${link ? `<a class="icon-button team-link" href="${esc(link)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(member.name)} on LinkedIn">${icon('linkedin', 20)}</a>` : ''}
+    </div>
     <p class="team-role">${esc(member.role)}</p>
-    ${link ? `<a class="icon-button team-link" href="${esc(link)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(member.name)} on LinkedIn">${icon('linkedin', 20)}</a>` : ''}
   </li>`;
 }
 

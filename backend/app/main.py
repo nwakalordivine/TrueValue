@@ -18,6 +18,9 @@ log = logging.getLogger("truevalue")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.cloudinary_misconfigured:  # never log the value: it holds the API secret
+        log.warning("CLOUDINARY_URL is set but is not cloudinary://<api_key>:<api_secret>@<cloud_name>; "
+                    "profile pictures are off.")
     try:
         async with engine.begin() as conn:
             if settings.is_postgres:

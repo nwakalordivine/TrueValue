@@ -5,7 +5,10 @@ so it never touches the real database, sends email or uploads pictures.
 """
 import asyncio
 import json
+import os
 import re
+import subprocess
+import sys
 import unittest
 from contextlib import ExitStack
 from datetime import timedelta
@@ -28,6 +31,7 @@ from app.services import avatars, mailer
 DIMENSIONS = [d["dimension_id"] for d in json.loads(
     (Path(__file__).resolve().parent.parent / "data" / "ethicalDimensions.json").read_text(encoding="utf-8"))]
 SECRET = "test-secret-that-is-long-enough-for-hs256-0123456789"
+BAD_CLOUDINARY_URL = "CLOUDINARY_URL=cloudinary://key:secret@demo"  # the name pasted into the value
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 
 
@@ -304,7 +308,17 @@ class Me(unittest.TestCase):
             token = (await t.sign_in("nopic@example.com"))["access_token"]
             r = await t.post("/api/me/avatar", token=token, files={"file": ("p.png", PNG, "image/png")})
             self.assertEqual(r.status_code, 503)
+            self.assertEqual(r.json()["detail"], "Profile pictures are not set up on this server.")
         run(scenario)
+        run(scenario, CLOUDINARY_URL=BAD_CLOUDINARY_URL)  # a malformed value turns pictures off, nothing else
+
+    def test_bad_cloudinary_url_does_not_break_startup(self):
+        # The Vercel failure: the Cloudinary SDK checks os.environ["CLOUDINARY_URL"] when it is imported,
+        # so a malformed value used to stop app.main from loading at all.
+        env = {**os.environ, "CLOUDINARY_URL": BAD_CLOUDINARY_URL, "DATABASE_URL": "sqlite+aiosqlite://"}
+        result = subprocess.run([sys.executable, "-c", "import app.main"], cwd=Path(__file__).resolve().parent.parent,
+                                env=env, capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stderr[-2000:])
 
 
 class FeedbackList(unittest.TestCase):

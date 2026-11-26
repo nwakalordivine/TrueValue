@@ -13,11 +13,23 @@ test('every team member has a name, a role and a photo path under /team/', () =>
   }
 });
 
+test('team copy uses no em or en dashes', () => {
+  for (const m of team) {
+    assert.doesNotMatch(m.role, /[–—]/, `role for ${m.name}`);
+  }
+});
+
 test('initials use the first and last word', () => {
   assert.equal(initials('Nwakalor Ejike'), 'NE');
   assert.equal(initials('Abdul Nasir Muniru'), 'AM');
   assert.equal(initials('rosa'), 'R');
   assert.equal(initials('  '), '');
+});
+
+test('every team member links to a LinkedIn profile', () => {
+  for (const m of team) {
+    assert.match(linkedinUrl(m.linkedin) || '', /^https:\/\/www\.linkedin\.com\/in\/[^/\s]+\/?$/, `linkedin for ${m.name}`);
+  }
 });
 
 test('only https LinkedIn links are shown', () => {

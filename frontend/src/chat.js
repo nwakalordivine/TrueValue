@@ -232,12 +232,15 @@ async function closeCam() { await stopCamera(); $('#camModal').hidden = true; $(
 $('#camBtn').addEventListener('click', async () => {
   $('#camModal').hidden = false; $('#camStatus').textContent = 'Opening camera...'; $('#camClose').focus();
   try {
-    await startCamera('chat-reader', code => { $('#camModal').hidden = true; ask(code); });
+    await startCamera('chat-reader', code => { $('#camModal').hidden = true; $('#input').focus(); ask(code); });
     $('#camStatus').textContent = 'Hold the barcode steady inside the box.';
   } catch (e) { $('#camStatus').textContent = e.message; }
 });
 $('#camClose').addEventListener('click', closeCam);
-$('#camModal').addEventListener('keydown', e => { if (e.key === 'Escape') closeCam(); });
+$('#camModal').addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeCam();
+  else if (e.key === 'Tab') { e.preventDefault(); $('#camClose').focus(); } // Close is the dialog's only control: keep focus in it
+});
 $('#photoBtn').addEventListener('click', () => $('#photo').click());
 $('#photo').addEventListener('change', async e => {
   const file = e.target.files?.[0]; if (!file) return;

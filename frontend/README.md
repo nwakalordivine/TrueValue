@@ -4,8 +4,8 @@ See the README in the parent folder for full setup.
 
 ```
 npm install
-npm run dev      # http://localhost:5173 and /chat.html
-npm test         # scoring tests
+npm run dev      # http://localhost:5173 (also /result.html, /chat.html, /compare.html, /nearme.html)
+npm test         # scoring, team, sign-in and profile tests
 npm run build    # production build in dist/
 ```
 

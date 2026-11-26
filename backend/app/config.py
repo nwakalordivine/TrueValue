@@ -1,4 +1,5 @@
 from pathlib import Path
+from urllib.parse import urlparse
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -45,7 +46,13 @@ class Settings(BaseSettings):
 
     @property
     def avatars_enabled(self) -> bool:
-        return bool(self.CLOUDINARY_URL)
+        # Only a well-formed cloudinary://<api_key>:<api_secret>@<cloud_name> turns profile pictures on
+        url = urlparse(self.CLOUDINARY_URL.strip())
+        return url.scheme == "cloudinary" and bool(url.hostname and url.username and url.password)
+
+    @property
+    def cloudinary_misconfigured(self) -> bool:
+        return bool(self.CLOUDINARY_URL.strip()) and not self.avatars_enabled
 
     @property
     def admin_emails(self) -> set[str]:

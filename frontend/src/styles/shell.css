@@ -19,7 +19,7 @@
 }
 .topbar .menu-button { margin-left: auto; }
 
-/* Drawers (sidebar on mobile, profile panel everywhere) */
+/* Drawer (the sidebar on mobile) */
 .drawer {
   position: fixed; top: 0; bottom: 0; z-index: var(--z-drawer);
   width: min(var(--panel-w), 88vw);
@@ -31,7 +31,21 @@
 }
 .drawer.is-open { visibility: visible; transform: none; transition: transform var(--dur) var(--ease); }
 .sidebar { right: 0; border-left: var(--border); transform: translateX(100%); }
-.profile-panel { left: 0; border-right: var(--border); transform: translateX(-100%); }
+
+/* Account popup: a card centred over the page, with a 16px gutter on phones */
+.modal-card {
+  position: fixed; top: 50%; left: 50%; z-index: var(--z-drawer);
+  width: min(420px, calc(100vw - 2 * var(--space-4)));
+  max-height: calc(100dvh - 2 * var(--space-4));
+  overflow-y: auto;
+  background: var(--c-surface); border: var(--border); border-radius: var(--radius);
+  opacity: 0; visibility: hidden; transform: translate(-50%, -48%) scale(0.98);
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease), visibility 0s linear var(--dur);
+}
+.modal-card.is-open {
+  opacity: 1; visibility: visible; transform: translate(-50%, -50%);
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
 .drawer-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4); border-bottom: var(--border); min-height: var(--topbar-h); }
 .drawer-title { font-size: var(--fs-h3); font-weight: var(--fw-semibold); margin: 0; }
 .drawer-body { padding: var(--space-4); }

@@ -1,11 +1,13 @@
 // The app shell shared by every page: top bar (mobile), sidebar (slide-in on mobile, fixed on desktop),
-// profile panel container and the main content slot. Each page calls mountShell() and then renders into
+// account popup card and the main content slot. Each page calls mountShell() and then renders into
 // the element it returns.
 import '../styles/tokens.css';
 import '../styles/base.css';
 import '../styles/shell.css';
 import { icon } from './icons.js';
 import { getTray } from '../services/compareTray.js';
+import { mountAccount } from './account.js';
+import { checkSession } from '../services/auth.js';
 
 const NAV = [
   { id: 'home', href: '/', label: 'Home', icon: 'home' },
@@ -46,26 +48,20 @@ export function mountShell({ active = '' } = {}) {
         ${icon(n.icon, 20)}<span>${n.label}</span>${n.id === 'compare' ? '<span class="nav-count" data-compare-count hidden></span>' : ''}</a>`).join('')}
     </nav>
     <div class="sidebar-foot">
-      <div class="account-area" data-account-area>
-        <p class="muted">Your values are saved in this browser.</p>
-        <button type="button" class="button secondary" data-open-profile aria-controls="profilePanel">${icon('login')}Sign in</button>
-      </div>
+      <div class="account-area" data-account-area></div>
       <a class="foot-link" href="/#feedback">${icon('report')}Report a problem</a>
     </div>
   </aside>
 
   <div class="backdrop" id="backdrop" hidden></div>
 
-  <aside class="profile-panel drawer" id="profilePanel" role="dialog" aria-modal="true" aria-labelledby="profileTitle" data-shell-part>
+  <div class="profile-panel modal-card" id="profilePanel" role="dialog" aria-modal="true" aria-labelledby="profileTitle" data-shell-part>
     <div class="drawer-head">
       <h2 class="drawer-title" id="profileTitle">Account</h2>
-      <button type="button" class="icon-button" data-close-drawer aria-label="Close account panel">${icon('close', 20)}</button>
+      <button type="button" class="icon-button" data-close-drawer aria-label="Close">${icon('close', 20)}</button>
     </div>
-    <div class="drawer-body" id="profileBody">
-      <p>Your values are saved in this browser, so they stay on this device.</p>
-      <p class="muted">Accounts that keep your values on any device arrive in a later update.</p>
-    </div>
-  </aside>
+    <div class="drawer-body" id="profileBody"></div>
+  </div>
 
   <main id="content" class="content" tabindex="-1" data-shell-part></main>`;
 
@@ -119,7 +115,8 @@ export function mountShell({ active = '' } = {}) {
   }
 
   menuButton.addEventListener('click', () => open(sidebar, menuButton));
-  app.querySelectorAll('[data-open-profile]').forEach(b => b.addEventListener('click', () => open(panel, b)));
+  // Delegated: the account area's button is redrawn when you sign in or out
+  app.addEventListener('click', e => { const b = e.target.closest('[data-open-profile]'); if (b) open(panel, b); });
   app.querySelectorAll('[data-close-drawer]').forEach(b => b.addEventListener('click', () => close()));
   backdrop.addEventListener('click', () => close());
   // Choosing a link closes the mobile menu (also for same-page links like /#about)
@@ -147,6 +144,16 @@ export function mountShell({ active = '' } = {}) {
   window.addEventListener('truevalue:compare', updateCount);
   window.addEventListener('storage', e => { if (e.key === 'truevalue-compare-v1') updateCount(); });
   updateCount();
+
+  // Sign-in state: the Account panel, the sidebar's account area and the avatars
+  mountAccount({
+    panelBody: app.querySelector('#profileBody'),
+    accountArea: app.querySelector('[data-account-area]'),
+    avatars: [...app.querySelectorAll('[data-avatar]')],
+    isPanelOpen: () => openDrawer === panel,
+    closePanel: () => { if (openDrawer === panel) close(); },
+  });
+  checkSession(); // once per page: proves the session still works and syncs saved values
 
   return app.querySelector('#content');
 }

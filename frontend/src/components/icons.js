@@ -4,7 +4,7 @@ import {
   House, MessageCircle, Columns2, MapPin, Info, Menu, X, UserRound, LogIn, Flag, Handshake, PawPrint, Leaf,
   Package, Recycle, Warehouse, Coins, Trash, CircleQuestionMark, ExternalLink, Clock, Search, Camera, ImageUp,
   ScanLine, Check, ChevronLeft, ChevronRight, Plus, ShoppingCart, LocateFixed, TriangleExclamationPoint,
-  Building, Sparkles, Send, CircleCheck, MessageSquareExclamationPoint, Store,
+  Building, Sparkles, Send, CircleCheck, MessageSquareExclamationPoint, Store, Pencil,
 } from 'lucide';
 
 // Lucide no longer ships brand icons, so LinkedIn is drawn here in the same outline style
@@ -22,7 +22,7 @@ const ICONS = {
   clock: Clock, search: Search, camera: Camera, upload: ImageUp, scan: ScanLine, check: Check, back: ChevronLeft,
   next: ChevronRight, plus: Plus, cart: ShoppingCart, locate: LocateFixed, warning: TriangleExclamationPoint,
   building: Building, sparkles: Sparkles, send: Send, ok: CircleCheck, report: MessageSquareExclamationPoint,
-  store: Store, linkedin: LinkedIn,
+  store: Store, linkedin: LinkedIn, edit: Pencil,
 };
 
 // One icon per value (replaces the emoji stored in ethicalDimensions.json)

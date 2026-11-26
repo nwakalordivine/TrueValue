@@ -13,6 +13,8 @@ import { teamCards, wireTeamPhotos } from './components/team.js';
 import { api } from './api.js';
 import { calculateMatch, rankProducts } from './services/scoringService.js';
 import { loadUser, saveUser } from './services/customerValuesService.js';
+import { queueSave } from './services/preferencesSync.js';
+import { currentUser } from './services/session.js';
 import { saveFeedback } from './services/feedbackService.js';
 import { esc, money } from './components/views.js';
 import { icon, DIMENSION_ICONS } from './components/icons.js';
@@ -27,6 +29,16 @@ let products = fbProducts, claims = fbClaims, dimensions = fbDimensions, prices 
 let online = false;
 
 const state = { user: loadUser(users[0], priorityWeights) };
+let rendered = false;
+// Signing in loaded the account's saved values (or another device changed them): redraw with them
+window.addEventListener('truevalue:values', () => {
+  state.user = loadUser(users[0], priorityWeights);
+  $('#budget').value = state.user.budget_cad; // the budget box is drawn up front, so update it in every case
+  $('#saveStatus').textContent = 'Loaded your saved values.';
+  if (!rendered) return; // init() has not drawn the sliders yet and will use the new values
+  renderStatic();
+  render();
+});
 // A result page's "Report a problem" link opens /?report=<name>&product=<id>#feedback
 const params = new URLSearchParams(location.search);
 const report = { name: (params.get('report') || '').trim().slice(0, 120), id: params.get('product') || '' };
@@ -48,7 +60,7 @@ content.innerHTML = `
           <label for="budget">Maximum price (CAD)</label>
           <input id="budget" type="number" inputmode="decimal" min="0" step="0.50" value="${esc(state.user.budget_cad)}">
         </div>
-        <p id="saveStatus" class="save-status muted" role="status">Saved in this browser</p>
+        <p id="saveStatus" class="save-status muted" role="status">${currentUser() ? 'Saved to your account' : 'Saved in this browser'}</p>
       </div>
     </section>
 
@@ -384,10 +396,15 @@ function onCompare(result, item, btn) {
 // ----- events -----
 function wire() {
   // Values apply instantly and auto-save, so result, compare and assistant pages always use the latest ones
+  // Signed in: also saved to the account 800ms after the last change (preferencesSync.js)
   let saveTimer;
+  const accountStatus = { saving: 'Saving...', saved: 'Saved', error: 'Saved in this browser. Your account could not be updated.' };
   const autosave = () => {
     clearTimeout(saveTimer); $('#saveStatus').textContent = 'Saving...';
-    saveTimer = setTimeout(() => { saveUser(state.user); $('#saveStatus').textContent = 'Saved in this browser'; }, 400);
+    saveTimer = setTimeout(() => {
+      saveUser(state.user);
+      if (!queueSave(state.user, s => { $('#saveStatus').textContent = accountStatus[s]; })) $('#saveStatus').textContent = 'Saved in this browser';
+    }, 400);
   };
   $('#sliders').addEventListener('input', e => {
     const id = e.target.dataset.weight; if (!id) return;
@@ -423,6 +440,7 @@ async function init() {
   dimensions.forEach(d => { if (state.user.weights[d.dimension_id] === undefined) state.user.weights[d.dimension_id] = d.default_weight; });
   renderStatic();
   render();
+  rendered = true;
   wire();
   wireFinder();
   // Arriving from another page with /#values, /#find, /#about or /#feedback: scroll once the content exists

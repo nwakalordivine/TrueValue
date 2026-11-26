@@ -87,7 +87,7 @@ export const api = {
   feedback: record => request('/api/feedback', { method: 'POST', body: record }),
 
   // Accounts
-  requestCode: (email, username) => request('/api/auth/request-code', { method: 'POST', auth: false, body: { email, username: username || null } }),
+  requestCode: (email, username, mode) => request('/api/auth/request-code', { method: 'POST', auth: false, body: { email, username: username || null, mode: mode || null } }),
   verifyCode: (email, code, username) => request('/api/auth/verify-code', { method: 'POST', auth: false, body: { email, code, username: username || null } }),
   logout: refreshToken => request('/api/auth/logout', { method: 'POST', auth: false, body: { refresh_token: refreshToken }, timeout: 8000 }),
   me: () => request('/api/me'),

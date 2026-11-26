@@ -7,7 +7,8 @@ export const currentUser = session.currentUser;
 export const onAuthChange = session.onAuthChange;
 
 // Step 1: email the 6-digit code. Resolves to { sent, is_new_user }.
-export const login = (email, username) => api.requestCode(email.trim(), (username || '').trim());
+// mode: 'signin' (the account must exist) or 'signup' (it must not exist yet; username required)
+export const login = (email, username, mode) => api.requestCode(email.trim(), (username || '').trim(), mode);
 
 // Step 2: check the code, start the session, then bring the values in line. Resolves to { user, notice }.
 export async function verify(email, code, username) {

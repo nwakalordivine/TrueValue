@@ -1,5 +1,5 @@
 import re
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, EmailStr, Field
 
@@ -51,6 +51,9 @@ Code = Annotated[str, Field(pattern=r"^\d{6}$")]
 class RequestCodeIn(BaseModel):
     email: Email
     username: Username | None = None  # needed only when the email is new
+    # "signin": the account must exist (no username asked). "signup": it must not exist yet (username required).
+    # Left out by older pages: either one, as before.
+    mode: Literal["signin", "signup"] | None = None
 
 
 class VerifyCodeIn(BaseModel):

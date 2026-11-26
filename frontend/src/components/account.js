@@ -4,6 +4,7 @@ import '../styles/account.css';
 import { icon } from './icons.js';
 import { esc } from './views.js';
 import { codeEntry } from './codeEntry.js';
+import { wireTabs } from './tabs.js';
 import { initials } from '../services/teamService.js';
 import { resizeImage } from '../services/imageResize.js';
 import * as auth from '../services/auth.js';
@@ -26,6 +27,7 @@ export function mountAccount({ panelBody, accountArea, avatars, isPanelOpen, clo
   let notice = '';
   let shownId = null; // the user the profile screens belong to (null while the sign-in screens show)
   let screen = 'signin'; // signin | account | email | code
+  let authMode = 'signin'; // which tab the signed-out card shows: signin (email only) | signup (email and username)
 
   // Move focus into the card after a screen change, but only when the card is open
   const focusPanel = (selector = '[data-autofocus]') => {
@@ -48,26 +50,62 @@ export function mountAccount({ panelBody, accountArea, avatars, isPanelOpen, clo
 
   // ----- Signed out -----
 
-  // Screen 1: email and username
-  function emailScreen(message = '') {
+  // Screen 1: Sign in (an existing account: email only) or Sign up (a new account: email and username)
+  function emailScreen(message = '', mode = authMode) {
     shownId = null;
     screen = 'signin';
+    authMode = mode;
     panelBody.innerHTML = `
+      <div class="tabs auth-tabs" role="tablist" aria-label="Sign in or create an account">
+        <button type="button" class="tab" role="tab" id="authTabSignin" data-mode="signin" aria-selected="${mode === 'signin'}">Sign in</button>
+        <button type="button" class="tab" role="tab" id="authTabSignup" data-mode="signup" aria-selected="${mode === 'signup'}">Sign up</button>
+      </div>
+      <div role="tabpanel" id="authForm" aria-labelledby="${mode === 'signin' ? 'authTabSignin' : 'authTabSignup'}"></div>`;
+    const tabpanel = panelBody.querySelector('#authForm');
+    wireTabs(panelBody.querySelector('[role=tablist]'), tab => {
+      if (tab.dataset.mode === authMode) return;
+      keepEmail();
+      authMode = tab.dataset.mode;
+      tabpanel.setAttribute('aria-labelledby', tab.id);
+      drawForm(tabpanel, ''); // focus stays on the tab, as tabs should
+    });
+    drawForm(tabpanel, message);
+    focusPanel();
+  }
+
+  // The email typed on one tab carries over to the other
+  function keepEmail() {
+    const field = panelBody.querySelector('input[name=email]');
+    if (field) draft.email = field.value.trim();
+  }
+
+  // Show the other tab after a 404 (no account) or 409 (account exists), keeping the email
+  function switchMode(mode) {
+    keepEmail();
+    emailScreen('', mode);
+    focusPanel(mode === 'signup' ? 'input[name=username]' : 'button[type=submit]');
+  }
+
+  function drawForm(tabpanel, message) {
+    const signup = authMode === 'signup';
+    tabpanel.innerHTML = `
       <form class="signin-form" novalidate>
-        <h3 class="panel-heading" tabindex="-1" data-autofocus>Sign in</h3>
-        <p>Sign in to save your values on any device. No password needed.</p>
+        <h3 class="panel-heading" tabindex="-1" data-autofocus>${signup ? 'Create your account' : 'Welcome back'}</h3>
+        <p>${signup ? 'Save your values on any device. No password needed: we email you a 6-digit code.'
+                    : 'Enter the email you signed up with and we will email you a 6-digit code.'}</p>
         ${message ? `<p class="account-notice" role="status">${esc(message)}</p>` : ''}
         <label>Email
           <input type="email" name="email" required maxlength="254" autocomplete="email" inputmode="email" value="${esc(draft.email)}">
         </label>
-        <label>Username <span class="field-hint">Only needed the first time</span>
-          <input type="text" name="username" minlength="2" maxlength="30" autocomplete="nickname" value="${esc(draft.username)}">
-        </label>
+        ${signup ? `<label>Username <span class="field-hint">Shown on your account</span>
+          <input type="text" name="username" required minlength="2" maxlength="30" autocomplete="nickname" value="${esc(draft.username)}">
+        </label>` : ''}
         <p class="form-error" role="alert"></p>
         <button type="submit" class="button">${icon('send')}Send code</button>
       </form>`;
-    const form = panelBody.querySelector('form'), error = form.querySelector('.form-error');
+    const form = tabpanel.querySelector('form'), error = form.querySelector('.form-error');
     const email = form.elements.email, username = form.elements.username, submit = form.querySelector('[type=submit]');
+    error.addEventListener('click', e => { const b = e.target.closest('[data-switch]'); if (b) switchMode(b.dataset.switch); });
     form.addEventListener('submit', async e => {
       e.preventDefault();
       error.textContent = '';
@@ -76,20 +114,29 @@ export function mountAccount({ panelBody, accountArea, avatars, isPanelOpen, clo
         email.focus();
         return;
       }
-      draft = { email: email.value.trim().toLowerCase(), username: username.value.trim() };
+      const nameProblem = signup ? usernameError(username.value.trim()) : '';
+      if (nameProblem) {
+        error.textContent = nameProblem;
+        username.focus();
+        return;
+      }
+      draft = { email: email.value.trim().toLowerCase(), username: signup ? username.value.trim() : '' };
       submit.disabled = true;
       submit.lastChild.textContent = 'Sending...';
       try {
-        await auth.login(draft.email, draft.username);
+        await auth.login(draft.email, draft.username, authMode);
         codeScreen();
       } catch (err) {
-        error.textContent = err.message;
         submit.disabled = false;
         submit.lastChild.textContent = 'Send code';
-        (/username/i.test(err.message) ? username : email).focus();
+        // Wrong tab for this email: say so, with a button that switches and keeps the email
+        const other = { 404: 'signup', 409: 'signin' }[err.status];
+        error.innerHTML = esc(err.message) + (other
+          ? ` <button type="button" class="link" data-switch="${other}">${other === 'signup' ? 'Sign up instead' : 'Sign in instead'}</button>`
+          : '');
+        (other ? error.querySelector('button') : signup && /username/i.test(err.message) ? username : email).focus();
       }
     });
-    focusPanel();
   }
 
   // Screen 2: the 6-digit code
@@ -101,8 +148,8 @@ export function mountAccount({ panelBody, accountArea, avatars, isPanelOpen, clo
         notice = result.notice || "You're signed in.";
         renderPanel(auth.currentUser());
       },
-      onResend: () => auth.login(draft.email, draft.username),
-      onBack: () => emailScreen(),
+      onResend: () => auth.login(draft.email, draft.username, authMode),
+      onBack: () => emailScreen('', authMode),
     });
   }
 

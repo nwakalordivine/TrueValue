@@ -1,9 +1,10 @@
 import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 from app import models  # noqa: F401  registers tables before create_all
 from app.config import settings
@@ -21,18 +22,35 @@ async def lifespan(app: FastAPI):
     if settings.cloudinary_misconfigured:  # never log the value: it holds the API secret
         log.warning("CLOUDINARY_URL is set but is not cloudinary://<api_key>:<api_secret>@<cloud_name>; "
                     "profile pictures are off.")
+    # Every Vercel cold start runs this before the first request is answered, so it uses as few database
+    # round trips as it can: one query lists the tables, and tables are only created when some are missing
+    # (create_all on its own asks about each of the 14 tables in turn).
+    started = time.perf_counter()
+    db_ready = False
     try:
         async with engine.begin() as conn:
-            if settings.is_postgres:
-                await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
-            await conn.run_sync(Base.metadata.create_all)
-        seeded = await catalog.seed_database()
-        if seeded:
-            log.info("Seeded demo catalog (%s records)", seeded)
+            existing = set(await conn.run_sync(lambda c: inspect(c).get_table_names()))
+            missing = [t for t in Base.metadata.sorted_tables if t.name not in existing]
+            if missing:
+                if settings.is_postgres:
+                    await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+                await conn.run_sync(lambda c: Base.metadata.create_all(c, tables=missing))
+                log.info("Created tables: %s", ", ".join(t.name for t in missing))
+        db_ready = True
     except Exception as exc:  # noqa: BLE001
         log.error("Database setup failed, running on JSON fallback: %s", exc)
+    db_done = time.perf_counter()
     await catalog.reload()
-    log.info("Catalog loaded from %s", catalog.source())
+    if db_ready and catalog.source() != "database":  # empty catalog tables: seed them once, then load
+        try:
+            seeded = await catalog.seed_database()
+            if seeded:
+                log.info("Seeded demo catalog (%s records)", seeded)
+                await catalog.reload()
+        except Exception as exc:  # noqa: BLE001
+            log.error("Seeding the catalog failed, running on JSON fallback: %s", exc)
+    log.info("Startup: database %.2f s, catalog %.2f s (from %s)", db_done - started,
+             time.perf_counter() - db_done, catalog.source())
     yield
     await engine.dispose()
 

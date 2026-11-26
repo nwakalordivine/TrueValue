@@ -26,7 +26,6 @@ import { startCamera, stopCamera, scanImage } from './services/barcodeScanner.js
 const content = mountShell({ active: 'home' });
 
 let products = fbProducts, claims = fbClaims, dimensions = fbDimensions, prices = fbPrices;
-let online = false;
 
 const state = { user: loadUser(users[0], priorityWeights) };
 let rendered = false;
@@ -368,7 +367,6 @@ async function searchProducts(query) {
   const status = $('#scannerStatus');
   query = query.trim();
   if (query.length < 2) { status.textContent = 'Type at least two letters.'; return; }
-  if (!online) { status.textContent = 'Start the backend to search products.'; return; }
   status.textContent = `Searching for "${query}"...`;
   const seq = ++results.seq; // a slow earlier search must not replace a newer one
   Object.assign(results, { query, items: [], page: 1 });
@@ -428,22 +426,39 @@ function wire() {
   });
 }
 
-async function init() {
-  try {
-    const data = await api.catalog();
-    products = data.products; claims = data.claims; dimensions = data.ethicalDimensions; prices = data.priceObservations;
-    online = true;
-    $('#apiStatus').textContent = 'Live data from the TrueValue server.';
-  } catch {
-    $('#apiStatus').textContent = 'Offline: the server is unreachable, so the bundled demo data is shown.';
-  }
-  dimensions.forEach(d => { if (state.user.weights[d.dimension_id] === undefined) state.user.weights[d.dimension_id] = d.default_weight; });
+const fillWeights = () => dimensions.forEach(d => {
+  if (state.user.weights[d.dimension_id] === undefined) state.user.weights[d.dimension_id] = d.default_weight;
+});
+
+// The page draws at once from the demo data bundled with it (the same files the server seeds from), so the
+// values card never waits for the network. The server copy is then fetched, and the page redraws only if it differs.
+function init() {
+  fillWeights();
   renderStatic();
   render();
   rendered = true;
   wire();
   wireFinder();
+  $('#apiStatus').textContent = 'Connecting to the TrueValue server...';
   // Arriving from another page with /#values, /#find, /#about or /#feedback: scroll once the content exists
   if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
+  syncCatalog();
+}
+
+async function syncCatalog() {
+  try {
+    const data = await api.catalog();
+    const next = [data.products, data.claims, data.ethicalDimensions, data.priceObservations];
+    const changed = JSON.stringify(next) !== JSON.stringify([products, claims, dimensions, prices]);
+    [products, claims, dimensions, prices] = next;
+    $('#apiStatus').textContent = 'Live data from the TrueValue server.';
+    if (!changed) return;
+    fillWeights();
+    // Redrawing the sliders would drop a slider someone is dragging; the scores below still update
+    if (!$('#sliders').contains(document.activeElement)) renderStatic();
+    render();
+  } catch {
+    $('#apiStatus').textContent = 'Offline: the server is unreachable, so the bundled demo data is shown.';
+  }
 }
 init();

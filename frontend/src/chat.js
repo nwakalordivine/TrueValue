@@ -88,15 +88,19 @@ function typing() {
 }
 
 // ---------- answer rendering ----------
+// Real Open Food Facts products have a photo and a pack size but no price; demo products have a demo price
 function productCard(p) {
   state.cards.set(p.product_id, p);
+  const real = !p.demo_data;
+  const meta = [p.brand, p.category].filter(Boolean).map(esc).join(' · ');
   return `<article class="pcard" data-card="${esc(p.product_id)}" tabindex="0" role="button" aria-expanded="false">
     <div class="pcard-top">
-      <div class="thumb">${icon('package', 20)}</div>
+      ${p.image ? `<img class="thumb" src="${esc(p.image)}" alt="" loading="lazy">` : `<div class="thumb">${icon('package', 20)}</div>`}
       <div class="pcard-info">
-        <small>${esc(p.brand)} · ${esc(p.category)}</small>
+        ${meta ? `<small>${meta}</small>` : ''}
         <strong>${esc(p.name)}</strong>
-        <span>${money(p.price)} <small>(demo price)</small></span>
+        ${real ? `<small>${esc(p.size || '')}${p.size ? ' · ' : ''}Real product, Open Food Facts</small>`
+               : `<span>${money(p.price)} <small>(demo price)</small></span>`}
       </div>
       <div class="pscore"><b>${p.score ?? 'N/A'}</b><small>/100</small></div>
     </div>
@@ -107,22 +111,30 @@ function productCard(p) {
   </article>`;
 }
 
+// "Consider instead": a real alternative opens by its barcode (a real lookup); a demo one asks about its score
+const altChip = (a, real) => `<button class="chip small" data-ask="${esc(real && a.barcode ? a.barcode : `Why did ${a.name} get its score?`)}">${esc(a.name)} +${a.score_delta}${a.price_delta !== null && a.price_delta !== undefined ? `, ${a.price_delta >= 0 ? '+' : '-'}$${Math.abs(a.price_delta).toFixed(2)}` : ''}</button>`;
+
 function cardDetails(p) {
+  const real = !p.demo_data;
+  const dispose = real ? (p.packaging.length ? `How do I dispose of a ${p.packaging[0].toLowerCase()}?` : '') : `How do I dispose of ${p.name}?`;
+  const where = real ? `Where can I buy ${(p.category || p.name).toLowerCase()} near me?` : `Where can I buy ${p.name}?`;
   return `
     <p>${esc(p.verdict.sentence)} ${esc(p.verdict.reason || '')}</p>
-    <table class="mini"><thead><tr><th>Value</th><th>Weight</th><th>Score</th><th>Status</th></tr></thead><tbody>
-    ${p.breakdown.map(r => `<tr><td>${esc(r.dimension)}</td><td>${r.weight}</td><td>${r.score ?? 'n/a'}</td><td>${statusBadge(r.status)}</td></tr>`).join('')}
-    </tbody></table>
+    <div class="table-scroll"><table class="mini breakdown"><thead><tr><th>Value</th><th>Weight</th><th>Score</th><th>Status</th></tr></thead><tbody>
+    ${p.breakdown.map(r => `<tr><td>${esc(r.dimension)}${r.note && real ? `<small>${esc(r.note)}</small>` : ''}</td><td>${r.weight}</td><td>${r.score ?? 'n/a'}</td><td>${statusBadge(r.status)}</td></tr>`).join('')}
+    </tbody></table></div>
     <p><strong>Ownership:</strong> ${p.company_chain.length ? p.company_chain.map(c => `${esc(c.name)} (${esc(c.ownership_type)}, ${esc(c.city)})`).join(', owned by ') + ' ' + statusBadge(p.company_chain[0].status) : 'Unknown'}</p>
     <p><strong>Made in:</strong> ${esc(p.made_in || 'Unknown')} · <strong>Ingredients:</strong> ${esc(p.components.join(', ') || 'Unknown')}</p>
     <p><strong>Packaging:</strong> ${esc(p.packaging.join(', ') || 'Unknown')} ${statusBadge(p.packaging_status)}</p>
     ${p.certifications.length ? `<p><strong>Certifications:</strong> ${p.certifications.map(c => `${esc(c.name)} ${statusBadge(c.status)}`).join(' ')}</p>` : ''}
-    ${p.alternatives.length ? `<p><strong>Consider instead:</strong> ${p.alternatives.map(a => `<button class="chip small" data-ask="Why did ${esc(a.name)} get its score?">${esc(a.name)} +${a.score_delta}${a.price_delta !== null ? `, ${a.price_delta >= 0 ? '+' : '-'}$${Math.abs(a.price_delta).toFixed(2)}` : ''}</button>`).join(' ')}</p>` : ''}
+    ${p.alternatives.length ? `<p><strong>Consider instead:</strong></p><div class="chips">${p.alternatives.map(a => altChip(a, real)).join('')}</div>` : ''}
     <div class="chips">
-      <button class="chip small" data-ask="Where can I buy ${esc(p.name)}?">${icon('store', 14)}Where to buy</button>
-      <button class="chip small" data-ask="How do I dispose of ${esc(p.name)}?">${icon('recycle', 14)}How to dispose</button>
+      <button class="chip small" data-ask="${esc(where)}">${icon('store', 14)}Where to buy</button>
+      ${dispose ? `<button class="chip small" data-ask="${esc(dispose)}">${icon('recycle', 14)}How to dispose</button>` : ''}
     </div>
-    <p class="muted">Scoring model ${esc(p.model_version)}. Product data is fictional demo data.</p>`;
+    <p class="muted">Scoring model ${esc(p.model_version)}. ${real
+      ? `Label and community data from Open Food Facts, not independently verified.${p.off_url ? ` <a href="${esc(p.off_url)}" target="_blank" rel="noopener noreferrer">See it on Open Food Facts${icon('external', 14)}<span class="sr-only"> (opens in a new tab)</span></a>` : ''}`
+      : 'Product data is fictional demo data.'}</p>`;
 }
 
 function companyCard(c) {

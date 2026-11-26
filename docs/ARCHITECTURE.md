@@ -39,7 +39,7 @@ Optional services never take the app down:
 
 | Path | What it does |
 |---|---|
-| `app/main.py` | Creates the FastAPI app. On startup (`lifespan`) it warns if `CLOUDINARY_URL` is malformed, then enables `pg_trgm` on Postgres, runs `Base.metadata.create_all` and seeds the demo catalog if the tables are empty. Then it loads the catalog into memory. If the database part fails it logs the error and serves from the JSON files instead. It also sets up CORS from `CORS_ORIGINS`, mounts every router under `/api`, and defines `/api/health`. |
+| `app/main.py` | Creates the FastAPI app. On startup (`lifespan`) it warns if `CLOUDINARY_URL` is malformed, lists the existing tables in one query and only when some are missing enables `pg_trgm` and runs `create_all` for those. Then it loads the catalog into memory, seeding the demo catalog first if its tables are empty. It logs `Startup: database X s, catalog Y s`, the cold-start cost on Vercel. If the database part fails it logs the error and serves from the JSON files instead. It also sets up CORS from `CORS_ORIGINS`, mounts every router under `/api`, and defines `/api/health`. |
 | `app/config.py` | `Settings` (pydantic-settings). Reads environment variables, then `backend/.env`; real environment variables win. Helpers: `auth_enabled`, `avatars_enabled` (only for a well-formed `cloudinary://key:secret@cloud`), `admin_emails`. |
 | `app/database.py` | Builds the async engine **when the module is imported**, using `settings.DATABASE_URL`, plus `SessionLocal` and `get_db`. The default URL is a local SQLite file (`sqlite+aiosqlite`). |
 | `app/models.py` | Tables. Catalog tables keep their key columns as real columns and store the full record in a JSON `data` column, so the API returns exactly the shape of the JSON files. Also `Feedback`, `Corporation` (the federal registry), and the account tables `User`, `EmailCode`, `RefreshToken` (section 7). Times are UTC (`utcnow`, `as_utc`). |
@@ -114,7 +114,7 @@ Optional services never take the app down:
 
 ## 3. How a request flows
 
-**Page load.** Each page calls `mountShell()`, which draws the shell and the account card from the stored session, then runs `checkSession()` once. If signed in, that calls `GET /api/me` to prove the session still works and syncs the saved values. Home calls `GET /api/catalog`. The backend answers from the in-memory catalog, which was loaded from Neon at startup or from the JSON files. If the call fails, the page uses `src/data/*.json` and says "Offline mode".
+**Page load.** Each page calls `mountShell()`, which draws the shell and the account card from the stored session, then runs `checkSession()` once the browser is idle. If signed in, that calls `GET /api/me` to prove the session still works and syncs the saved values. Home draws the values, finder and demo products at once from `src/data/*.json`, then calls `GET /api/catalog` in the background and redraws only if the server copy differs. If the call fails, the status line says the bundled demo data is shown.
 
 **Scan or upload a barcode.**
 1. zxing-wasm decodes the barcode in the browser.
@@ -123,7 +123,7 @@ Optional services never take the app down:
 4. `assistant.lookup_barcode` checks the demo catalog first. If the barcode is not there, it calls `openfoodfacts.fetch`: Redis cache first (24 h), then `world.openfoodfacts.org/api/v2/product/{code}.json`.
 5. `to_truevalue` turns the label data into six Claimed or Unknown claims, `product_card` scores them, and `registry.search_companies` looks up the brand owner in Neon.
 
-**Search by name.** `GET /api/search` returns matching demo products, then `openfoodfacts.search`: Redis cache first (6 h), then `search.openfoodfacts.org` filtered to Canada, then worldwide, then the old `cgi/search.pl` as a last resort.
+**Search by name.** `GET /api/search` calls `openfoodfacts.search` (no demo products): Redis cache first (6 h), then `search.openfoodfacts.org`. When the words name a kind of product (`category_tag`: water, coffee, oat milk...), it first searches that Open Food Facts category in Canada sorted by popularity, so well-known products with fuller labels come first. Then Canada without the category, then worldwide, then the old `cgi/search.pl` as a last resort. The search server's field is `countries:"en:canada"`; `countries_tags` is rejected with HTTP 400.
 
 **Near me.** `GET /api/places/stores` or `/drop-offs` goes to `places.py`: Redis cache first (6 h), then the Overpass mirrors in order within a 14 s budget, then Nominatim within an 8 s budget. The response gives distances and OSM directions links. Stock is always shown as Unknown.
 
@@ -132,12 +132,13 @@ Optional services never take the app down:
 2. `parser.rule_parse` works out the intent.
 3. If an OpenRouter key is set, `llm.complete_json` refines the parse, cached in Redis for 1 h. `merge_llm` throws away any invented product or dimension.
 4. The handler for the intent runs (recommend, compare, explain, where to buy, dispose, company check, barcode, help).
+   Recommend and compare use **real products** unless the shopper names demo products: `parser` takes the product words out of the question (`search_terms`: "canned water high on fair trade" gives "canned water"), `assistant.real_products` makes one `openfoodfacts.search(..., full=True)` call whose hits carry the label data (`from_search` converts them, so there is no request per product; the product API answers HTTP 429 to bursts), scores them with the shopper's weights and returns the top 3. "Consider instead" only lists other real products from the same search. If nothing is found it says so; it never falls back to demo products.
 5. Optionally, the AI rewords the template answer. `_summarize` rejects any answer that names a product not in the results.
 
 **Feedback.** `POST /api/feedback` saves a `Feedback` row in Neon, then `mailer.send` emails `FEEDBACK_EMAIL` over SMTP. If the server is down, the browser saves the feedback in localStorage instead.
 
 **Sign in.**
-1. The account card asks for email and username. `POST /api/auth/request-code` stores a hash of a new 6-digit code, cancels earlier unused codes for that email, and emails the code with `mailer.send_to`.
+1. The account card has two tabs. **Sign in** asks only for the email (`mode: signin`; 404 if no account). **Sign up** asks for email and username (`mode: signup`; 409 if the email already has an account). Either error offers a button to the other tab. `POST /api/auth/request-code` stores a hash of a new 6-digit code, cancels earlier unused codes for that email, and emails the code with `mailer.send_to`.
 2. The code screen sends `POST /api/auth/verify-code`, with the username again for a new email, because `email_codes` has no username column.
 3. The response's tokens and user go into `session.js`, and `onAuthChange` redraws the avatars and the sidebar.
 
@@ -256,7 +257,7 @@ Related functions:
 Passwordless sign-in. The server logic lives in `backend/app/services/auth.py`, with the endpoints in `routers/auth.py` and `routers/me.py`. The browser side lives in `frontend/src/services/session.js`, `auth.js`, `preferencesSync.js` and `profile.js`, and in `components/account.js`.
 
 **Sign-in endpoints**
-1. `POST /api/auth/request-code {email, username}`: emails a 6-digit code using `mailer.send_to`. The username is needed only for a new email.
+1. `POST /api/auth/request-code {email, username, mode}`: emails a 6-digit code using `mailer.send_to`. `mode` is `signin` (account must exist) or `signup` (email must be new, username required); without it, the username is needed only for a new email.
 2. `POST /api/auth/verify-code {email, code, username?}`: checks the code, creates the user if they are new, and returns `{access_token, refresh_token, user}`.
 3. The access token (JWT HS256, `ACCESS_TOKEN_MINUTES`) goes in `Authorization: Bearer` for `/api/me/*`. When it expires, `POST /api/auth/refresh {refresh_token}` returns a new pair and revokes the old refresh token (rotation). Reusing a revoked refresh token revokes all of that user's sessions.
 4. `POST /api/auth/logout {refresh_token}` revokes it.

@@ -1,6 +1,6 @@
 /* Assistant page */
 .content.chat-content { padding-bottom: var(--space-4); }
-.chat-layout { display: grid; gap: var(--space-4); max-width: var(--content-max); }
+.chat-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); max-width: var(--content-max); }
 .chat-main {
   display: flex; flex-direction: column; min-height: 0;
   height: calc(100dvh - var(--topbar-h) - var(--space-8));
@@ -9,8 +9,8 @@
 .chat-log { flex: 1; overflow-y: auto; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); }
 .msg { display: flex; flex-direction: column; gap: var(--space-2); max-width: 100%; }
 .msg.user { align-self: flex-end; align-items: flex-end; max-width: 85%; }
-.msg.bot { align-self: flex-start; width: 100%; }
-.bubble { padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--c-surface-alt); }
+.msg.bot { align-self: flex-start; width: 100%; min-width: 0; }
+.bubble { padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--c-surface-alt); overflow-wrap: anywhere; }
 .bubble p { margin: 0 0 var(--space-2); }
 .bubble p:last-child { margin-bottom: 0; }
 .msg.user .bubble { background: var(--c-brand); color: var(--c-on-brand); }
@@ -35,7 +35,9 @@
 .chip.small { min-height: 32px; padding: 0 var(--space-2); }
 
 /* Answer cards */
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-3); width: 100%; }
+/* min() lets one card fill a phone; min-width: 0 stops a card's table or long name from widening the chat */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: var(--space-3); width: 100%; }
+.cards > *, .pcard-more, .pcard-info { min-width: 0; }
 .pcard, .ccard, .block { background: var(--c-surface); border: var(--border); border-radius: var(--radius); padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); width: 100%; }
 .pcard { cursor: pointer; }
 .pcard:hover { border-color: var(--c-border-strong); }
@@ -44,13 +46,20 @@
 .pcard-top .thumb { width: 40px; height: 40px; }
 .pcard-info { display: flex; flex-direction: column; }
 .pcard-info small { color: var(--c-muted); }
-.pcard-info strong { font-weight: var(--fw-medium); }
+.pcard-info strong { font-weight: var(--fw-medium); overflow-wrap: anywhere; }
+.pcard-top img.thumb { padding: 2px; }
 .pscore b { font-size: var(--fs-h3); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
 .pscore small { color: var(--c-muted); }
 .pcard-mid { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .pcard-mid small { color: var(--c-muted); }
 .badges { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.hl { font-size: var(--fs-small); display: inline-flex; gap: var(--space-1); align-items: center; }
+.hl { font-size: var(--fs-small); display: inline-flex; flex-wrap: wrap; gap: var(--space-1); align-items: center; }
+/* Value breakdown: the badge may wrap inside its cell; the reason sits under the value name */
+.breakdown .status { white-space: normal; padding: 1px var(--space-1); }
+table.mini.breakdown th, table.mini.breakdown td { padding: var(--space-2) var(--space-1); }
+table.mini.breakdown th:first-child, table.mini.breakdown td:first-child { padding-left: 0; }
+.breakdown td small { display: block; color: var(--c-muted); font-size: var(--fs-small); }
+.pcard-more .chips { margin: var(--space-2) 0; }
 .tap { color: var(--c-brand); font-weight: var(--fw-medium); }
 .pcard-more { border-top: var(--border); padding-top: var(--space-2); }
 .pcard-more p { margin: var(--space-2) 0; }
@@ -91,9 +100,9 @@
 .cam-head h2 { font-size: var(--fs-body); margin: 0; }
 #chat-reader { width: 100%; min-height: 240px; background: var(--c-scan-bg); border-radius: var(--radius); overflow: hidden; }
 
-/* Phones: the chat fills the screen; priorities and location sit below it, scrolling sideways */
+/* Phones: the chat fills the screen; priorities and location sit below it, one under the other */
 @media (max-width: 899px) {
-  .chat-side { grid-auto-flow: column; grid-auto-columns: minmax(240px, 80%); overflow-x: auto; }
+  .chat-side { grid-template-columns: minmax(0, 1fr); }
   .send-label { display: none; }
   .composer .button { padding: 0 var(--space-3); }
   .chat-main { min-height: 360px; }

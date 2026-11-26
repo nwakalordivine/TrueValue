@@ -43,21 +43,16 @@ async def barcode_lookup(body: BarcodeIn):
 
 @router.get("/search")
 async def search_products(q: str, limit: int = 12):
-    """Search by name: matching demo products first, then real products from Open Food Facts."""
+    """Search real products by name in Open Food Facts. Demo products are not mixed in: they are on Home, labelled."""
     from fastapi import HTTPException
     from app.services import openfoodfacts
 
     q = q.strip()
     if len(q) < 2:
         raise HTTPException(400, "Type at least two letters.")
-    words = q.lower().split()
-    demo = [{"product_id": p["product_id"], "barcode": p.get("barcode"), "name": p["name"], "brand": p.get("brand"),
-             "quantity": p.get("size"), "image": None, "emoji": p.get("emoji"), "source": "demo"}
-            for p in catalog.get()["products"]
-            if all(w in f"{p['name']} {p.get('brand', '')} {p.get('category', '')}".lower() for w in words)]
     try:
-        real = await openfoodfacts.search(q, max(1, min(limit, 48)))
+        items = await openfoodfacts.search(q, max(1, min(limit, 48)), openfoodfacts.category_tag(q))
         error = None
     except Exception:  # noqa: BLE001
-        real, error = [], "Product search is busy right now. Wait a few seconds and try again, or scan the barcode instead."
-    return {"query": q, "items": demo[:3] + real, "error": error}
+        items, error = [], "Product search is busy right now. Wait a few seconds and try again, or scan the barcode instead."
+    return {"query": q, "items": items, "error": error}

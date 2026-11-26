@@ -7,6 +7,9 @@
 .signin-form p { margin: 0; }
 .signin-form label { display: grid; gap: var(--space-1); font-weight: var(--fw-medium); }
 .signin-form .button { justify-self: stretch; }
+/* Sign in | Sign up: two equal tabs across the card */
+.auth-tabs .tab { flex: 1 1 0; justify-content: center; }
+.signin-form .form-error button.link { font-size: inherit; }
 .field-hint { color: var(--c-muted); font-size: var(--fs-small); font-weight: var(--fw-regular); }
 .form-error { margin: 0; color: var(--c-danger); font-size: var(--fs-small); }
 .form-error:empty { display: none; }

@@ -62,7 +62,9 @@ input[type=search], input[type=text], input[type=email], input[type=number], sel
   background: var(--c-surface); color: var(--c-text);
 }
 textarea { min-height: 96px; resize: vertical; }
-input[type=search], input[type=text], input[type=email] { font-size: 16px; } /* stops iOS zooming on focus */
+/* 16px or more stops iPhones zooming in on focus (and staying zoomed after the keyboard closes) */
+input[type=search], input[type=text], input[type=email], input[type=number], input[type=tel], input[type=url],
+input[type=password], select, textarea { font-size: 16px; }
 label { font-weight: var(--fw-medium); }
 
 /* Surfaces */

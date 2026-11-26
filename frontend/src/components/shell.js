@@ -153,7 +153,10 @@ export function mountShell({ active = '' } = {}) {
     isPanelOpen: () => openDrawer === panel,
     closePanel: () => { if (openDrawer === panel) close(); },
   });
-  checkSession(); // once per page: proves the session still works and syncs saved values
+  // Once per page: proves the session still works and syncs saved values. It waits until the page has drawn
+  // and the browser is idle, so it does not compete with the page's own first request (a slow cold start).
+  const idle = window.requestIdleCallback || (fn => setTimeout(fn, 1200));
+  idle(() => checkSession(), { timeout: 2500 });
 
   return app.querySelector('#content');
 }

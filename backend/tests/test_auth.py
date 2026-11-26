@@ -133,6 +133,44 @@ class SignIn(unittest.TestCase):
             self.assertEqual(r.json()["user"]["username"], "Original")
         run(scenario)
 
+    def test_sign_in_needs_an_existing_account(self):
+        async def scenario(t):
+            r = await t.post("/api/auth/request-code", {"email": "nobody@example.com", "mode": "signin"})
+            self.assertEqual(r.status_code, 404)
+            self.assertIn("Sign up", r.json()["detail"])
+            t.mail.assert_not_awaited()
+        run(scenario)
+
+    def test_sign_in_asks_only_for_the_email(self):
+        async def scenario(t):
+            await t.sign_in("back@example.com", "Returning")
+            await t.db(update(EmailCode).values(created_at=utcnow() - timedelta(hours=2)))  # step past the limits
+            r = await t.post("/api/auth/request-code", {"email": "back@example.com", "mode": "signin"})
+            self.assertEqual(r.json(), {"sent": True, "is_new_user": False})
+            r = await t.post("/api/auth/verify-code", {"email": "back@example.com", "code": t.last_code("back@example.com")})
+            self.assertEqual(r.json()["user"]["username"], "Returning")
+        run(scenario)
+
+    def test_sign_up_with_a_used_email_says_sign_in(self):
+        async def scenario(t):
+            await t.sign_in("taken@example.com", "First")
+            await t.db(update(EmailCode).values(created_at=utcnow() - timedelta(hours=2)))
+            r = await t.post("/api/auth/request-code", {"email": "taken@example.com", "username": "Second", "mode": "signup"})
+            self.assertEqual(r.status_code, 409)
+            self.assertIn("Sign in", r.json()["detail"])
+        run(scenario)
+
+    def test_sign_up_creates_the_account(self):
+        async def scenario(t):
+            r = await t.post("/api/auth/request-code", {"email": "fresh@example.com", "mode": "signup"})
+            self.assertEqual(r.status_code, 422, "sign up needs a username")
+            r = await t.post("/api/auth/request-code", {"email": "fresh@example.com", "username": "Fresh", "mode": "signup"})
+            self.assertEqual(r.json(), {"sent": True, "is_new_user": True})
+            r = await t.post("/api/auth/verify-code", {"email": "fresh@example.com", "code": t.last_code("fresh@example.com"),
+                                                       "username": "Fresh"})
+            self.assertEqual(r.json()["user"]["username"], "Fresh")
+        run(scenario)
+
     def test_wrong_code_then_locked_after_five(self):
         async def scenario(t):
             await t.post("/api/auth/request-code", {"email": "lock@example.com", "username": "Lock"})

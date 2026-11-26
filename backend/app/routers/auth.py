@@ -12,6 +12,8 @@ from app.services import auth, mailer
 
 router = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(auth.auth_configured)])
 NEED_USERNAME = "Choose a username (2 to 30 characters) to create your account."
+NO_ACCOUNT = "No account uses this email yet. Sign up to create one."
+ACCOUNT_EXISTS = "An account with this email already exists. Sign in instead."
 
 
 async def send_code(email: str, code: str) -> None:
@@ -26,6 +28,10 @@ async def send_code(email: str, code: str) -> None:
 @router.post("/request-code")
 async def request_code(body: RequestCodeIn, db: AsyncSession = Depends(get_db)):
     user = await db.scalar(select(User).where(User.email == body.email))
+    if body.mode == "signin" and user is None:
+        raise HTTPException(404, NO_ACCOUNT)
+    if body.mode == "signup" and user is not None:
+        raise HTTPException(409, ACCOUNT_EXISTS)
     if user is None and not body.username:
         raise HTTPException(422, NEED_USERNAME)
     code = await auth.issue_code(db, body.email, "login")

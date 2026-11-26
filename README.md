@@ -26,7 +26,7 @@ Every page shares one app shell (`frontend/src/components/shell.js`):
 |---|---|---|
 | Backend API serving the catalog, scores and True Value Card verdicts | `backend/app` | Demo catalog (12 products) stored in Postgres |
 | **Your values**: sliders and a budget, saved in the browser, or to your account when signed in | Home | Browser or account |
-| **Find a product**: scan a barcode with the camera, upload a photo of one, or search by name. Demo catalog first, then real products from Open Food Facts, scored against your values | Home, `POST /api/barcode`, `GET /api/search` | Real, Open Food Facts (marked Claimed) |
+| **Find a product**: scan a barcode with the camera, upload a photo of one, or search by name. Real products from Open Food Facts, popular ones sold in Canada first, scored against your values | Home, `POST /api/barcode`, `GET /api/search` | Real, Open Food Facts (marked Claimed) |
 | **Result page**: score, why, consider instead, evidence and sources, nearest stores, which bin | `result.html?barcode=...` or `?product=p5` | All of the below |
 | **Assistant**: recommend, compare, explain scores, company check, where to buy, how to dispose; camera and photo barcode buttons | `chat.html`, `backend/app/services/assistant.py` | All of the below |
 | **Compare** up to 3 products side by side | `compare.html`, tray in `src/services/compareTray.js` | Computed |
@@ -179,7 +179,7 @@ All paths are under `/api`. "Token" means `Authorization: Bearer <access token>`
 | POST | `/products/{id}/card` | True Value Card for given weights |
 | GET | `/products/{id}/disposal` | Regina bin guidance for the packaging |
 | POST | `/barcode` | Barcode lookup: `{barcode, weights}` |
-| GET | `/search?q=&limit=` | Search by name: demo catalog, then Open Food Facts |
+| GET | `/search?q=&limit=` | Search real products by name in Open Food Facts (no demo products) |
 | GET | `/places/stores?lat&lon&category` | Nearest real stores (OpenStreetMap) |
 | GET | `/places/drop-offs?lat&lon` | Nearest SARCAN depots and recycling points |
 | GET | `/companies/search?q=`, `/companies/{number}` | Federal registry search and detail |
@@ -187,7 +187,7 @@ All paths are under `/api`. "Token" means `Authorization: Bearer <access token>`
 | POST | `/feedback` | Send feedback (anyone) |
 | GET | `/feedback` | Recent feedback (token, `ADMIN_EMAILS` only) |
 | GET | `/diagnostics` | Times every outside service from the server |
-| POST | `/auth/request-code` | `{email, username}`: email a 6-digit code. Username needed only for a new email. |
+| POST | `/auth/request-code` | `{email, username, mode}`: email a 6-digit code. `mode` `signin` needs an existing account (404 if none), `signup` needs a new email and a username (409 if the email is taken). |
 | POST | `/auth/verify-code` | `{email, code, username?}` returns `{access_token, refresh_token, user}` |
 | POST | `/auth/refresh` | `{refresh_token}` returns a new pair. The old refresh token stops working. |
 | POST | `/auth/logout` | `{refresh_token}`: revokes it (204) |

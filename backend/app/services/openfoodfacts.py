@@ -26,6 +26,34 @@ CATEGORY_MAP = [("coffee", "Coffee"), ("chocolate", "Chocolate"), ("spread", "Sp
                 ("beverage", "Beverages"), ("drink", "Beverages"), ("water", "Beverages")]
 GRADE_SCORE = {"a-plus": 95, "a": 90, "b": 75, "c": 55, "d": 35, "e": 15, "f": 10}
 
+# Shopper words -> Open Food Facts category tag, so "canned water" finds waters, not artichokes canned in water.
+# Longer phrases first. Every tag was checked against the live search server (Nov 2026) and returns Canadian products.
+CATEGORY_TAGS = [
+    ("peanut butter", "en:peanut-butters"), ("oat milk", "en:plant-based-milk-alternatives"),
+    ("oat drink", "en:plant-based-milk-alternatives"), ("almond milk", "en:plant-based-milk-alternatives"),
+    ("water", "en:waters"), ("coffee", "en:coffees"), ("espresso", "en:coffees"), ("tea", "en:teas"),
+    ("juice", "en:fruit-juices"), ("milk", "en:milks"), ("soda", "en:sodas"), ("pop", "en:sodas"),
+    ("chocolate", "en:chocolates"), ("honey", "en:honeys"), ("jam", "en:jams"),
+    ("cereal", "en:breakfast-cereals"), ("granola", "en:mueslis"), ("muesli", "en:mueslis"),
+    ("chips", "en:chips-and-fries"), ("crisps", "en:chips-and-fries"), ("cookie", "en:biscuits"),
+    ("biscuit", "en:biscuits"), ("pasta", "en:pastas"), ("spaghetti", "en:pastas"), ("rice", "en:rices"),
+    ("bread", "en:breads"), ("yogurt", "en:yogurts"), ("yoghurt", "en:yogurts"), ("cheese", "en:cheeses"),
+]
+
+
+def category_match(text: str) -> tuple[str, str] | None:
+    """(product word, Open Food Facts category) for the first product word in the text, else None."""
+    t = (text or "").lower()
+    for word, tag in CATEGORY_TAGS:
+        if re.search(rf"(?<![a-z]){re.escape(word)}(?:s|es)?(?![a-z])", t):
+            return word, tag
+    return None
+
+
+def category_tag(text: str) -> str | None:
+    hit = category_match(text)
+    return hit[1] if hit else None
+
 
 def valid_barcode(code: str) -> str | None:
     digits = re.sub(r"\D", "", code or "")
@@ -52,6 +80,26 @@ async def fetch(code: str) -> dict | None:
 
 def _clean_tags(tags) -> list[str]:
     return [t.split(":", 1)[-1].replace("-", " ") for t in (tags or [])]
+
+
+_LANG_PREFIX = re.compile(r"^[a-z]{2,3}:")
+
+
+def clean_brand(raw) -> str | None:
+    """First brand from the brands field, without tag syntax: 'xx:al-janoub-stores' -> 'Al Janoub Stores'.
+
+    Hyphens are only replaced in tag-style values (the ones with a language prefix), so real
+    brand names such as 'Coca-Cola' keep theirs. Words are capitalised only if it is all lowercase.
+    """
+    if isinstance(raw, list):
+        raw = ", ".join(str(b) for b in raw)
+    brand = (raw or "").split(",")[0].strip()
+    if _LANG_PREFIX.match(brand):
+        brand = _LANG_PREFIX.sub("", brand).replace("-", " ")
+    brand = " ".join(brand.split())
+    if brand and brand == brand.lower():
+        brand = " ".join(w[:1].upper() + w[1:] for w in brand.split())
+    return brand or None
 
 
 def _materials(p: dict) -> list[str]:
@@ -142,7 +190,7 @@ def to_truevalue(p: dict) -> tuple[dict, list[dict], dict]:
     claims = [_claim(pid, d, s, t) for d, (s, t) in dims.items()]
     name = p.get("product_name") or p.get("product_name_en") or "Unnamed product"
     product = {
-        "product_id": pid, "barcode": code, "name": name, "brand": (p.get("brands") or "").split(",")[0].strip() or None,
+        "product_id": pid, "barcode": code, "name": name, "brand": clean_brand(p.get("brands")),
         "company_id": None, "category": category,
         "country_of_manufacture": made or None,
         "country_of_origin_components": [f"Origins: {origins}"] if origins else [],
@@ -160,45 +208,98 @@ def to_truevalue(p: dict) -> tuple[dict, list[dict], dict]:
 
 
 SEARCH_FIELDS = "code,product_name,product_name_en,brands,quantity,image_front_small_url,countries_tags"
+# Everything to_truevalue reads. The search server names them differently and sends lists of tags (see from_search).
+SCORE_FIELDS = ("code,product_name,product_name_en,brands,brand_owner,quantity,image_front_url,image_front_small_url,"
+                "countries,labels,categories,manufacturing_places,origins,environmental_score_grade,packagings")
 
 
-def _search_item(p: dict) -> dict | None:
+def _tag_text(value) -> str:
+    """['en:fair-trade', 'Canada'] -> 'Fair Trade, Canada'. Text stays as it is."""
+    if not isinstance(value, list):
+        return value or ""
+    out = []
+    for t in value:
+        t = str(t).strip()
+        if _LANG_PREFIX.match(t):
+            t = _LANG_PREFIX.sub("", t).replace("-", " ").title()
+        if t:
+            out.append(t)
+    return ", ".join(dict.fromkeys(out))
+
+
+def from_search(hit: dict) -> dict:
+    """A search.openfoodfacts.org hit -> the product API shape that to_truevalue reads.
+
+    The search server sends `labels`, `categories` and `countries` as lists of tags, and places as lists.
+    A hit from the classic search (already in product API shape) passes through unchanged.
+    """
+    if not isinstance(hit.get("labels"), list) and not isinstance(hit.get("categories"), list):
+        return hit
+    p = dict(hit)
+    p["labels_tags"] = hit.get("labels") or []
+    p["categories_tags"] = hit.get("categories") or []
+    p["countries_tags"] = hit.get("countries") or []
+    for key in ("labels", "countries", "manufacturing_places", "origins", "brand_owner"):
+        p[key] = _tag_text(hit.get(key))
+    return p
+
+
+def _search_item(p: dict, in_canada: bool = False) -> dict | None:
     code = valid_barcode(str(p.get("code") or ""))
+    countries = p.get("countries_tags") or (p.get("countries") if isinstance(p.get("countries"), list) else [])
     name = p.get("product_name") or p.get("product_name_en")
     if not code or not name:
         return None
-    brands = p.get("brands") or ""
-    if isinstance(brands, list):
-        brands = ", ".join(brands)
-    return {"barcode": code, "name": name.strip(), "brand": brands.split(",")[0].strip() or None,
+    return {"barcode": code, "name": name.strip(), "brand": clean_brand(p.get("brands")),
             "quantity": p.get("quantity"), "image": p.get("image_front_small_url"),
-            "sold_in_canada": "en:canada" in (p.get("countries_tags") or []), "source": "openfoodfacts"}
+            "sold_in_canada": in_canada or "en:canada" in countries, "source": "openfoodfacts"}
 
 
-async def search(query: str, limit: int = 12) -> list[dict]:
-    """Real products by name. Products sold in Canada first, then the rest of the world."""
+async def search(query: str, limit: int = 12, category: str | None = None, full: bool = False) -> list[dict]:
+    """Real products by name. Products sold in Canada first, then the rest of the world.
+
+    `category` (an Open Food Facts tag from category_tag) keeps results to that kind of product,
+    so "canned water" finds waters. With fewer than 3 such hits the search widens without it.
+    `full` adds each item's label data as `product` (product API shape), so it can be scored
+    without one more request per product (the product API answers HTTP 429 to bursts).
+    """
     q = " ".join(query.split())[:80]
-    key = f"offsearch:{q.lower()}:{limit}"
+    key = f"offsearch:{q.lower()}:{limit}:{category or ''}:{'full' if full else 'list'}"
     cached = await cache_get(key)
     if cached is not None:
         return cached
     base = "https://world.openfoodfacts.org/cgi/search.pl"
-    common = {"search_terms": q, "search_simple": 1, "action": "process", "json": 1,
-              "page_size": limit, "fields": SEARCH_FIELDS, "sort_by": "unique_scans_n"}
+    fields = SCORE_FIELDS if full else SEARCH_FIELDS
+    common = {"search_terms": q, "search_simple": 1, "action": "process", "json": 1, "page_size": limit,
+              "fields": f"{FIELDS},image_front_small_url,countries_tags" if full else SEARCH_FIELDS,
+              "sort_by": "unique_scans_n"}
     canada = {**common, "tagtype_0": "countries", "tag_contains_0": "contains", "tag_0": "canada"}
     # Measured from Vercel with /api/diagnostics (Oct 2026): the classic cgi/search.pl returns HTTP 503
-    # (an HTML error page), while the newer search server answers in under 1 s, including the Canada filter.
-    # So the new server is used first; the classic one is only a last resort.
+    # (an HTML error page), while the newer search server answers in under 1 s, so it is used first.
+    # Its field is `countries` (Nov 2026: `countries_tags` is rejected with HTTP 400) and `categories`.
     fast_url = "https://search.openfoodfacts.org/search"
-    fast_canada = {"q": f'{q} countries_tags:"en:canada"', "page_size": limit, "fields": SEARCH_FIELDS}
-    fast_world = {"q": q, "page_size": limit, "fields": SEARCH_FIELDS}
-
-    attempts = [(fast_url, fast_canada, "hits"), (fast_url, fast_world, "hits"), (base, canada, "products")]
+    in_canada = f'{q} countries:"en:canada"'
+    attempts = []
+    if category:
+        # Inside a category, the most scanned products come first: well-known brands with fuller label data
+        # (Nov 2026: "water" in en:waters gave Kirkland, Eska, Naya by popularity; "Water, no brand" by relevance).
+        # If the full words find too little ("canned water"), the category's own word is tried next ("water").
+        popular = {"page_size": limit, "fields": fields, "sort_by": "-unique_scans_n"}
+        attempts.append((fast_url, {**popular, "q": f'{in_canada} categories:"{category}"'}, "hits", True))
+        word = category_match(q)
+        if word and word[1] == category and word[0] != q.lower():
+            attempts.append((fast_url, {**popular, "q": f'{word[0]} countries:"en:canada" categories:"{category}"'},
+                             "hits", True))
+    first_wide = len(attempts)
+    attempts += [(fast_url, {"q": in_canada, "page_size": limit, "fields": fields}, "hits", True),
+                 (fast_url, {"q": q, "page_size": limit, "fields": fields}, "hits", False),
+                 (base, canada, "products", True)]
     items: list[dict] = []
     failures = 0
     async with httpx.AsyncClient(timeout=httpx.Timeout(12, connect=5), headers={"User-Agent": USER_AGENT}) as client:
-        for url, params, list_key in attempts:
-            if len(items) >= limit:
+        for i, (url, params, list_key, canadian) in enumerate(attempts):
+            # Enough results: stop. Category results count once there are 3, so the kind of product stays right.
+            if len(items) >= limit or (category and i >= first_wide and len(items) >= 3):
                 break
             try:
                 resp = await client.get(url, params=params)
@@ -209,8 +310,10 @@ async def search(query: str, limit: int = 12) -> list[dict]:
                 log.warning("Open Food Facts search %s failed: %s %s", url, type(exc).__name__, exc)
                 continue
             for p in results:
-                item = _search_item(p)
+                item = _search_item(p, canadian)
                 if item and all(i["barcode"] != item["barcode"] for i in items):
+                    if full:
+                        item["product"] = from_search(p)
                     items.append(item)
     if not items and failures == len(attempts):
         raise RuntimeError("Open Food Facts search unavailable")

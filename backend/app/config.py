@@ -1,4 +1,5 @@
 from pathlib import Path
+from urllib.parse import urlparse
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -27,9 +28,35 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:5173"  # comma separated, or *
     CHAT_RATE_LIMIT_PER_MINUTE: int = 20
 
+    # Accounts (passwordless sign-in). Without JWT_SECRET the sign-in endpoints answer 503; the rest of the app works.
+    JWT_SECRET: str = ""
+    ACCESS_TOKEN_MINUTES: int = 60
+    REFRESH_TOKEN_DAYS: int = 7
+    LOGIN_CODE_MINUTES: int = 10
+    CLOUDINARY_URL: str = ""  # cloudinary://<api_key>:<api_secret>@<cloud_name>; empty = no profile pictures
+    ADMIN_EMAILS: str = ""  # comma separated; these signed-in users may read GET /api/feedback
+
     @property
     def cors_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def auth_enabled(self) -> bool:
+        return bool(self.JWT_SECRET)
+
+    @property
+    def avatars_enabled(self) -> bool:
+        # Only a well-formed cloudinary://<api_key>:<api_secret>@<cloud_name> turns profile pictures on
+        url = urlparse(self.CLOUDINARY_URL.strip())
+        return url.scheme == "cloudinary" and bool(url.hostname and url.username and url.password)
+
+    @property
+    def cloudinary_misconfigured(self) -> bool:
+        return bool(self.CLOUDINARY_URL.strip()) and not self.avatars_enabled
+
+    @property
+    def admin_emails(self) -> set[str]:
+        return {e.strip().lower() for e in self.ADMIN_EMAILS.split(",") if e.strip()}
 
     @property
     def is_postgres(self) -> bool:

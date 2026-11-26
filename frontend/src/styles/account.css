@@ -1,0 +1,64 @@
+/* Account panel: sign-in screens, the 6-digit code boxes and the signed-in view. */
+.panel-heading { font-size: var(--fs-h3); margin: 0 0 var(--space-2); }
+.panel-heading:focus { outline: none; }
+.panel-heading:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
+
+.signin-form { display: grid; gap: var(--space-3); }
+.signin-form p { margin: 0; }
+.signin-form label { display: grid; gap: var(--space-1); font-weight: var(--fw-medium); }
+.signin-form .button { justify-self: stretch; }
+/* Sign in | Sign up: two equal tabs across the card */
+.auth-tabs .tab { flex: 1 1 0; justify-content: center; }
+.signin-form .form-error button.link { font-size: inherit; }
+.field-hint { color: var(--c-muted); font-size: var(--fs-small); font-weight: var(--fw-regular); }
+.form-error { margin: 0; color: var(--c-danger); font-size: var(--fs-small); }
+.form-error:empty { display: none; }
+.account-notice { margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius); background: var(--c-verified-bg); color: var(--c-verified); font-size: var(--fs-small); }
+
+/* Six boxes that fit a 375px phone: 6 x 44px + 5 gaps */
+.code-screen { display: grid; gap: var(--space-3); }
+.code-screen p { margin: 0; }
+.code-lead:focus { outline: none; }
+.code-boxes { display: flex; gap: var(--space-2); margin: 0; padding: 0; border: 0; min-width: 0; }
+.code-box {
+  width: 44px; height: 52px; min-height: 0; padding: 0; flex: 0 0 44px;
+  text-align: center; font-size: var(--fs-h2); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums;
+}
+.code-box:disabled { opacity: 0.6; }
+.code-hint { font-size: var(--fs-small); }
+.code-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.code-actions [data-resend] { font-variant-numeric: tabular-nums; }
+
+/* Signed in */
+.account-view { display: grid; gap: var(--space-3); }
+.account-view p { margin: 0; }
+.account-name { font-weight: var(--fw-semibold); overflow-wrap: anywhere; min-width: 0; }
+.account-view .button { justify-self: start; }
+
+/* Profile picture with the pencil button on its lower right */
+.profile-photo { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
+.profile-avatar { position: relative; flex: none; }
+.avatar.avatar-xl { width: 96px; height: 96px; font-size: var(--fs-h2); }
+.avatar-edit {
+  position: absolute; right: -2px; bottom: -2px;
+  display: grid; place-items: center; width: 36px; height: 36px; padding: 0;
+  border: 2px solid var(--c-surface); border-radius: var(--radius-full);
+  background: var(--c-brand); color: var(--c-on-brand); cursor: pointer;
+}
+.avatar-edit::after { content: ''; position: absolute; inset: -6px; } /* 44px tap area */
+.avatar-edit:hover { background: var(--c-brand-hover); }
+.avatar-edit:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
+.avatar-edit:disabled { cursor: default; opacity: 0.6; }
+.profile-avatar.is-uploading .avatar { opacity: 0.5; }
+.profile-photo-side { display: grid; gap: var(--space-1); justify-items: start; min-width: 0; }
+.profile-photo-side .muted:empty { display: none; }
+
+/* Username and email rows */
+.profile-field { display: grid; gap: var(--space-1); justify-items: start; padding-top: var(--space-3); border-top: var(--border); min-width: 0; }
+.field-label { color: var(--c-muted); font-size: var(--fs-small); font-weight: var(--fw-medium); }
+.field-row { display: flex; align-items: center; gap: var(--space-1); min-width: 0; max-width: 100%; }
+.field-value { overflow-wrap: anywhere; }
+.profile-field .button { margin-top: var(--space-1); }
+.name-edit { display: grid; gap: var(--space-2); width: 100%; }
+.name-actions { display: flex; gap: var(--space-2); }
+.account-who { margin: 0 0 var(--space-1); font-weight: var(--fw-semibold); overflow-wrap: anywhere; }

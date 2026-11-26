@@ -77,6 +77,30 @@ def _category(text: str) -> str | None:
     return None
 
 
+# Words that say how to shop, not what to buy. What is left is the product to search for.
+FILLER_WORDS = set("""
+i im i'm id i'd we me my you your would like love want wanna need needs looking look for find search show get give buy
+buying purchase shop shopping recommend recommendation recommendations suggest suggestion suggestions please pls can could
+should will a an the some any one ones something anything thing things product products item items option options brand
+brands kind type sort of to in on at with that which who what is are be it its it's this these those and or but also
+high higher highly low lower rated rating score scores scoring strong good great best better top nice really very more most
+ethical ethically sustainable value values priority priorities matters matter care about friendly sourced
+made from cheap cheaper cheapest affordable price priced budget dollars dollar cad bucks under below less than max maximum
+up compare comparison versus vs difference between why explain how does did was got """.split())
+
+
+def _search_terms(text: str) -> str | None:
+    """'would like to buy a canned water high on fair trade' -> 'canned water'"""
+    t = re.sub(r"(?:under|below|less than|max(?:imum)?|cheaper than|up to|<)\s*\$?\s*\d+(?:\.\d{1,2})?", " ", text)
+    t = re.sub(r"\$\s*\d+(?:\.\d{1,2})?", " ", t)
+    for words in PRIORITY_WORDS.values():
+        for w in sorted(words, key=len, reverse=True):
+            t = re.sub(r"(?<![a-z])" + re.escape(w) + r"[a-z]*", " ", t)
+    kept = [w for w in re.findall(r"[a-z0-9][a-z0-9'&-]*", t) if w not in FILLER_WORDS and not w.isdigit()]
+    out = " ".join(kept)[:60].strip()
+    return out or None
+
+
 def _company_name(message: str) -> str | None:
     m = message.strip().rstrip("?.! ")
     patterns = [
@@ -114,7 +138,7 @@ def rule_parse(message: str, products: list[dict]) -> dict:
     code = re.search(r"(?<!\d)(\d{8}|\d{12,14})(?!\d)", t.replace(" ", "") if re.fullmatch(r"[\d ]{8,20}", t) else t)
     if code:
         return {"intent": "barcode", "barcode": code.group(1), "product_ids": [], "category": None, "priorities": [],
-                "max_price": None, "company_name": None, "materials": [], "parsed_by": "rules"}
+                "max_price": None, "company_name": None, "materials": [], "search_terms": None, "parsed_by": "rules"}
     intent = "recommend"
     for name, pattern in INTENT_PATTERNS:
         if re.search(pattern, t):
@@ -126,7 +150,7 @@ def rule_parse(message: str, products: list[dict]) -> dict:
     if intent == "recommend" and len(product_ids) == 1 and re.search(r"\b(score|rating|good|ethical|fit)\b", t):
         intent = "explain"
 
-    priorities = [dim for dim, words in PRIORITY_WORDS.items() if any(w in t for w in words)]
+    priorities = [dim for dim, words in PRIORITY_WORDS.items() if any(_contains(t, w) for w in words)]
     if intent in ("dispose", "where_to_buy"):
         priorities = []  # "recycle" in a disposal question is not a shopping priority
     price = re.search(r"(?:under|below|less than|max(?:imum)?|cheaper than|up to|<)\s*\$?\s*(\d+(?:\.\d{1,2})?)", t)
@@ -139,6 +163,7 @@ def rule_parse(message: str, products: list[dict]) -> dict:
         "max_price": float(price.group(1)) if price else None,
         "company_name": _company_name(message) if intent == "company_check" else None,
         "materials": materials,
+        "search_terms": _search_terms(t) if intent in ("recommend", "compare", "explain") else None,
         "parsed_by": "rules",
     }
 
@@ -155,6 +180,8 @@ Return ONLY a JSON object with these keys:
 - "max_price": number in CAD if the user gives a price limit, else null
 - "company_name": the company name for company_check, else null
 - "materials": packaging materials mentioned for dispose (e.g. "glass jar"), else []
+- "search_terms": for recommend, compare or explain, the kind of product to look for in a grocery database, in 1 to 4 plain words
+  (e.g. "canned water", "dark chocolate", "oat milk"), without values, prices or filler; else null
 Never invent products. If unsure, use intent "recommend"."""
 
 
@@ -186,5 +213,8 @@ def merge_llm(rule: dict, llm: dict | None, products: list[dict]) -> dict:
     if out["intent"] == "dispose" and isinstance(llm.get("materials"), list):
         mats = [m for m in llm["materials"] if isinstance(m, str) and 1 < len(m) < 40]
         out["materials"] = mats or rule["materials"]
+    terms = llm.get("search_terms")
+    if out["intent"] in ("recommend", "compare", "explain") and isinstance(terms, str) and re.fullmatch(r"[A-Za-z0-9 '&-]{2,60}", terms.strip()):
+        out["search_terms"] = " ".join(terms.lower().split())
     out["parsed_by"] = "ai"
     return out

@@ -18,6 +18,9 @@ from app.services import catalog, disposal, llm, openfoodfacts, parser, places, 
 log = logging.getLogger("truevalue.assistant")
 DATA_NOTE = ("Products, prices and their claims are fictional demo data. Company registry checks, store "
              "locations and recycling rules are real.")
+REAL_NOTE = ("These are real products from Open Food Facts: label and community data, not independently verified. "
+             "Prices are not known for them. Registry checks, store locations and recycling rules are real.")
+OFF_SOURCE = "Open Food Facts (community data, label claims)"
 
 
 # ---------- helpers ----------
@@ -31,13 +34,18 @@ def _weights(client_weights: dict | None, priorities: list[str]) -> dict:
     return base
 
 
-def product_card(p: dict, weights: dict, extra_claims: list[dict] | None = None) -> dict:
-    """True Value Card. `extra_claims` is used for products that are not in the catalog (barcode scans)."""
+def product_card(p: dict, weights: dict, extra_claims: list[dict] | None = None,
+                 alt_pool: list[dict] | None = None) -> dict:
+    """True Value Card. `extra_claims` is used for products that are not in the catalog (real Open Food Facts
+    products). Their "Consider instead" list only comes from `alt_pool` (other real products), never the demo."""
     c = catalog.get()
     claims = c["claims"] + (extra_claims or [])
-    products = c["products"] if not extra_claims else c["products"] + [p]
+    products = c["products"] if not extra_claims else (alt_pool or [p])
     match = scoring.calculate_match(p, c["ethicalDimensions"], weights, claims)
     alts = scoring.alternatives(p, products, c["ethicalDimensions"], weights, claims, c["priceObservations"])
+    codes = {x["product_id"]: x.get("barcode") for x in products}
+    for a in alts:
+        a["barcode"] = codes.get(a["product_id"])
     chain = catalog.company_chain(p.get("company_id"))
     certs = []
     for pc in c["productCertifications"]:
@@ -132,24 +140,6 @@ def _could_change(rows: list[dict]) -> str | None:
     return None
 
 
-def _filter(products: list[dict], parsed: dict, prices: list[dict]) -> tuple[list[dict], list[str]]:
-    notes = []
-    pool = products
-    if parsed["category"]:
-        in_cat = [p for p in pool if p["category"] == parsed["category"]]
-        if in_cat:
-            pool = in_cat
-        else:
-            notes.append(f"We have no {parsed['category'].lower()} products in the demo catalog yet.")
-    if parsed["max_price"] is not None:
-        cheap = [p for p in pool if (scoring.lowest_price(p["product_id"], prices) or 1e9) <= parsed["max_price"]]
-        if cheap:
-            pool = cheap
-        else:
-            notes.append(f"Nothing matched under ${parsed['max_price']:.2f}, so these are the closest options.")
-    return pool, notes
-
-
 def _location(loc: dict | None) -> dict:
     if loc and isinstance(loc.get("lat"), (int, float)) and isinstance(loc.get("lon"), (int, float)):
         return {"lat": float(loc["lat"]), "lon": float(loc["lon"]), "source": "browser"}
@@ -198,15 +188,13 @@ async def answer(message: str, client_weights: dict | None, location: dict | Non
 
 
 async def _recommend(out, parsed, weights, location):
+    if not parsed["product_ids"]:
+        return await _recommend_real(out, parsed, weights)
+    # The shopper named demo products: rank those (the demo catalog is only used when asked for by name)
     c = catalog.get()
-    if parsed["product_ids"]:
-        pool = [catalog.product_by_id(i) for i in parsed["product_ids"]]
-        notes = []
-    else:
-        pool, notes = _filter(c["products"], parsed, c["priceObservations"])
+    pool = [catalog.product_by_id(i) for i in parsed["product_ids"]]
     ranked = scoring.rank_products(pool, c["ethicalDimensions"], weights, c["claims"])[:3]
     out["products"] = [product_card(p, weights) for p, _ in ranked]
-    out["notes"] += notes
     if out["products"]:
         best = out["products"][0]
         pris = out["applied"]["priorities"]
@@ -220,14 +208,49 @@ async def _recommend(out, parsed, weights, location):
         out["_template"] = "I couldn't find matching products in the demo catalog."
 
 
+def _pri_text(out: dict) -> str:
+    pris = out["applied"]["priorities"]
+    return (", ".join(pris[:-1]) + " and " + pris[-1]) if len(pris) > 1 else (pris[0] if pris else "your saved priorities")
+
+
+async def _recommend_real(out, parsed, weights):
+    cards, terms, error = await real_products(parsed, weights)
+    out["data_note"] = REAL_NOTE
+    out["search_terms"] = terms
+    if not cards:
+        return _no_real_products(out, terms, error)
+    out["products"] = cards
+    best = cards[0]
+    by = f" by {best['brand']}" if best.get("brand") else ""
+    if best["score"] is None:
+        out["_template"] = (f"I found real {terms} products, but none of them report anything about your priorities yet. "
+                            "Unknown is not bad: there's just no data on the label.")
+    else:
+        out["_template"] = (f"Based on {_pri_text(out)}, {best['name']}{by} is the best fit of the real {terms} products "
+                            f"I found, at {best['score']}/100 ({best['verdict']['label'].lower()}). "
+                            f"{best['verdict']['sentence']} This comes from label and community data, not independent checks.")
+    if parsed["max_price"] is not None:
+        out["notes"].append("Prices are not known for real products, so the price limit was not applied.")
+    out["suggestions"] = [f"Where can I buy {terms} near me?"]
+    if best["packaging"]:
+        out["suggestions"].append(f"How do I dispose of a {best['packaging'][0].lower()}?")
+    if len(cards) >= 2:
+        out["suggestions"].append(f"Compare {terms}")
+
+
 async def _compare(out, parsed, weights, location):
-    c = catalog.get()
     ids = parsed["product_ids"][:3]
-    if len(ids) < 2:
-        pool, notes = _filter(c["products"], parsed, c["priceObservations"])
-        out["notes"] += notes
-        ids = [p["product_id"] for p, _ in scoring.rank_products(pool, c["ethicalDimensions"], weights, c["claims"])[:3]]
-    cards = [product_card(catalog.product_by_id(i), weights) for i in ids]
+    if len(ids) >= 2:
+        cards = [product_card(catalog.product_by_id(i), weights) for i in ids]
+    else:  # two demo products were not named: compare real products instead
+        cards, terms, error = await real_products(parsed, weights)
+        out["data_note"] = REAL_NOTE
+        if not cards:
+            return _no_real_products(out, terms, error)
+        if len(cards) < 2:
+            out["products"] = cards
+            out["_template"] = f"I found only one real {terms} product, so there is nothing to compare it with."
+            return
     cards.sort(key=lambda x: -(x["score"] if x["score"] is not None else -1))
     out["products"] = cards
     dims = [r["dimension"] for r in cards[0]["breakdown"]] if cards else []
@@ -376,6 +399,54 @@ async def _help(out, parsed, weights, location):
                           "Compare Prairie Morning Coffee and Everyday Ground Coffee", "Where do I recycle a glass jar?"]
 
 
+def real_card(product: dict, facts: dict, weights: dict, claims: list[dict], pool: list[dict] | None = None) -> dict:
+    """Card for a real Open Food Facts product, with the reason behind each value from its label data."""
+    card = product_card(product, weights, extra_claims=claims, alt_pool=pool)
+    for row in card["breakdown"]:
+        row["note"] = facts["reasons"].get(row["dimension_id"])
+        if row["source"] is None:
+            row["source"] = OFF_SOURCE
+    card["image"] = facts.get("image")
+    card["off_url"] = facts.get("url")
+    return card
+
+
+async def real_products(parsed: dict, weights: dict, n: int = 3) -> tuple[list[dict], str | None, str | None]:
+    """Search Open Food Facts for what the shopper asked for and score the results with their values.
+
+    Returns (cards, search words, error). Never falls back to demo products.
+    """
+    terms = parsed.get("search_terms") or (parsed["category"] or "").lower() or None
+    if not terms:
+        return [], None, None
+    try:  # one search request: its hits carry the label data, so no request per product
+        hits = await openfoodfacts.search(terms, 12, openfoodfacts.category_tag(terms), full=True)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Open Food Facts search failed: %s", exc)
+        return [], terms, "Open Food Facts is unavailable right now. Try again shortly."
+    items = [openfoodfacts.to_truevalue(h["product"]) for h in hits if h.get("product")]
+    if not items:
+        return [], terms, None
+    products = [prod for prod, _, _ in items]
+    claims = [cl for _, cls, _ in items for cl in cls]
+    facts = {prod["product_id"]: f for prod, _, f in items}
+    c = catalog.get()
+    ranked = scoring.rank_products(products, c["ethicalDimensions"], weights, c["claims"] + claims)[:n]
+    return [real_card(prod, facts[prod["product_id"]], weights, claims, products) for prod, _ in ranked], terms, None
+
+
+def _no_real_products(out: dict, terms: str | None, error: str | None) -> None:
+    if error:
+        out["_template"] = error
+    elif terms:
+        out["_template"] = (f'I couldn\'t find real products for "{terms}" in Open Food Facts. '
+                            "Try another word, or scan the barcode on the pack.")
+    else:
+        out["_template"] = ("What kind of product are you looking for? Name it and I'll check real products "
+                            "against your values, for example 'fair trade coffee' or 'Canadian honey'.")
+        out["suggestions"] = ["Fair trade coffee", "Canadian honey", "Vegan dark chocolate"]
+
+
 async def lookup_barcode(code: str, weights: dict) -> dict:
     """Demo catalog first, then the real Open Food Facts database."""
     barcode = openfoodfacts.valid_barcode(code)
@@ -394,12 +465,7 @@ async def lookup_barcode(code: str, weights: dict) -> dict:
         return {"found": False, "barcode": barcode,
                 "error": "This barcode is not in Open Food Facts yet. Unknown is not bad: there's just no data."}
     product, claims, facts = openfoodfacts.to_truevalue(raw)
-    card = product_card(product, weights, extra_claims=claims)
-    reasons = facts["reasons"]
-    for row in card["breakdown"]:
-        row["note"] = reasons.get(row["dimension_id"])
-        if row["source"] is None:
-            row["source"] = "Open Food Facts (community data, label claims)"
+    card = real_card(product, facts, weights, claims)
     owner = facts.get("brand_owner") or product.get("brand")
     reg = None
     if owner:

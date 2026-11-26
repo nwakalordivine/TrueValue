@@ -4,9 +4,10 @@ Each catalog table keeps its key columns as real columns (for joins and filters)
 full record in a JSON `data` column, so the API returns exactly the shape the frontend
 already uses. Score is computed on request and never stored as truth.
 """
-from datetime import date, datetime
+import uuid
+from datetime import UTC, date, datetime
 
-from sqlalchemy import JSON, Boolean, Date, Float, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, Date, DateTime, Float, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -100,6 +101,53 @@ class Feedback(Base):
     message: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(32), default="pending-review")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+def utcnow() -> datetime:
+    return datetime.now(UTC)
+
+
+def as_utc(value: datetime | None) -> datetime | None:
+    """SQLite hands back naive datetimes; every time we store is UTC, so mark it as such for comparisons."""
+    if value is not None and value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value
+
+
+# Accounts. Times are set in Python (UTC) rather than by the database, so SQLite (tests) and Postgres agree.
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    email: Mapped[str] = mapped_column(String(254), unique=True, index=True)  # lowercase, trimmed
+    username: Mapped[str] = mapped_column(String(30))
+    avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    avatar_public_id: Mapped[str | None] = mapped_column(String(255), nullable=True)  # Cloudinary id, to delete the old picture
+    preferences: Mapped[dict | None] = mapped_column(JsonType, nullable=True)  # {"weights": {...}, "budget_cad": number}
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class EmailCode(Base):
+    """A 6-digit sign-in or change-email code. Only an HMAC of the code is stored, never the code."""
+    __tablename__ = "email_codes"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(254), index=True)
+    purpose: Mapped[str] = mapped_column(String(16))  # login or change_email
+    user_id: Mapped[str | None] = mapped_column(String(36), nullable=True)  # set for change_email
+    code_hash: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+    jti: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class Corporation(Base):

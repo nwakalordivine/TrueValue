@@ -1,194 +1,123 @@
-import './styles.css';
+// Home page: set your values, then find a product. Results open on /result.html.
+import { mountShell } from './components/shell.js';
+import './styles/home.css';
 // Bundled copies of the demo data: used only if the backend is unreachable, so the page never goes blank.
 import fbProducts from './data/products.json';
-import fbCompanies from './data/companies.json';
-import fbCertifications from './data/certifications.json';
-import fbProductCertifications from './data/productCertifications.json';
 import fbClaims from './data/claims.json';
-import fbSources from './data/dataSources.json';
 import fbDimensions from './data/ethicalDimensions.json';
+import fbPrices from './data/priceObservations.json';
 import users from './data/userProfiles.json';
 import priorityWeights from './data/priorityWeights.json';
-import fbRetailers from './data/retailers.json';
-import fbPrices from './data/priceObservations.json';
+import team from './data/team.json';
+import { teamCards, wireTeamPhotos } from './components/team.js';
 import { api } from './api.js';
 import { calculateMatch, rankProducts } from './services/scoringService.js';
 import { loadUser, saveUser } from './services/customerValuesService.js';
-import { scoreExplanation } from './components/ScoreExplanation.js';
+import { queueSave } from './services/preferencesSync.js';
+import { currentUser } from './services/session.js';
 import { saveFeedback } from './services/feedbackService.js';
-import { getLocation, mapEmbedUrl } from './services/locationService.js';
-import { alternativeRecommendations } from './services/recommendationService.js';
-import { esc, money, placeList, disposalView, locationLine, verdictPill, scanResultView } from './components/views.js';
+import { esc, money } from './components/views.js';
+import { icon, DIMENSION_ICONS } from './components/icons.js';
+import { wireTabs } from './components/tabs.js';
+import { compareButton, wireCompareButtons } from './components/compare.js';
+import { getTray, MAX as TRAY_MAX } from './services/compareTray.js';
 import { startCamera, stopCamera, scanImage } from './services/barcodeScanner.js';
-import { getTray, toggle as toggleTray, inTray, clearTray, MAX as TRAY_MAX } from './services/compareTray.js';
 
-let products = fbProducts, companies = fbCompanies, certifications = fbCertifications,
-  productCertifications = fbProductCertifications, claims = fbClaims, sources = fbSources,
-  dimensions = fbDimensions, retailers = fbRetailers, prices = fbPrices;
-let online = false;
+const content = mountShell({ active: 'home' });
 
-const user = loadUser(users[0], priorityWeights);
-const state = { user, search: '', selected: new Set(['p1', 'p3']), details: 'p1', budgetOnly: false,
-  location: null, nearTab: 'stores', storeCategory: '' };
+let products = fbProducts, claims = fbClaims, dimensions = fbDimensions, prices = fbPrices;
+
+const state = { user: loadUser(users[0], priorityWeights) };
+let rendered = false;
+// Signing in loaded the account's saved values (or another device changed them): redraw with them
+window.addEventListener('truevalue:values', () => {
+  state.user = loadUser(users[0], priorityWeights);
+  $('#budget').value = state.user.budget_cad; // the budget box is drawn up front, so update it in every case
+  $('#saveStatus').textContent = 'Loaded your saved values.';
+  if (!rendered) return; // init() has not drawn the sliders yet and will use the new values
+  renderStatic();
+  render();
+});
+// A result page's "Report a problem" link opens /?report=<name>&product=<id>#feedback
+const params = new URLSearchParams(location.search);
+const report = { name: (params.get('report') || '').trim().slice(0, 120), id: params.get('product') || '' };
 const $ = s => document.querySelector(s);
 const priceFor = p => { const obs = prices.filter(o => o.product_id === p.product_id); return obs.length ? Math.min(...obs.map(o => o.price)) : null; };
 const match = p => calculateMatch(p, dimensions, state.user.weights, claims, state.user.user_id);
-const categories = () => [...new Set(products.map(p => p.category))];
 
-$('#app').innerHTML = `
-<header class="topbar">
-  <a class="brand" href="#home">🌿 TrueValue</a>
-  <nav aria-label="Main navigation">
-    <a href="#values">My Values</a>
-    <a href="#find">🔎 Find a product</a>
-    <a href="#compare">Compare</a>
-    <a href="#transparency">Evidence</a>
-    <a href="#local">Near Me</a>
-    <a href="#feedback">Feedback</a>
-    <a class="nav-cta" href="/chat.html">💬 Ask TrueValue</a>
-  </nav>
-</header>
+content.innerHTML = `
+<div class="content-inner home">
+  <div class="home-grid">
+    <section class="section" id="values" aria-labelledby="valuesTitle">
+      <div class="section-head">
+        <h1 id="valuesTitle">Your values</h1>
+        <p>Set how much each value matters to you. Every score, comparison and assistant answer uses these.</p>
+      </div>
+      <div class="panel">
+        <div id="sliders" class="sliders"></div>
+        <div class="budget">
+          <label for="budget">Maximum price (CAD)</label>
+          <input id="budget" type="number" inputmode="decimal" min="0" step="0.50" value="${esc(state.user.budget_cad)}">
+        </div>
+        <p id="saveStatus" class="save-status muted" role="status">${currentUser() ? 'Saved to your account' : 'Saved in this browser'}</p>
+      </div>
+    </section>
 
-<main>
-  <section class="hero" id="home">
-    <div class="hero-inner">
-      <p class="welcome-message">🌿 Hello, TrueValuer! 👋</p>
-      <span class="eyebrow">THE ETHICAL CONSUMER COMPASS</span>
-      <h1>Shop by your values.<br><em>Trust the evidence.</em></h1>
-      <p>Find products that fit your priorities, understand the claims behind every score, find them near you, and learn how to dispose of the packaging responsibly.</p>
-      <a class="button" href="#values">Set my values →</a>
-      <a class="button outline" href="#find">Scan or search a product</a>
-      <a class="button outline" href="/chat.html">💬 Ask the assistant</a>
-    </div>
-  </section>
-
-  <div class="notice" role="note">
-    <strong>Real data:</strong> products you scan or search (Open Food Facts), the federal company registry, nearby stores and recycling drop-offs (OpenStreetMap), and City of Regina recycling rules.
-    🧪 <strong>Demo data:</strong> the two sample products and their prices are fictional.
-    <span id="apiStatus" class="api-status"></span>
+    <section class="section" id="find" aria-labelledby="findTitle">
+      <div class="section-head">
+        <h2 id="findTitle">Find a product</h2>
+        <p>Scan the barcode, upload a photo of it, or search by name. The result shows the score, the reasons and better options.</p>
+      </div>
+      <div class="panel finder">
+        <div class="tabs" role="tablist" aria-label="How to find a product">
+          <button type="button" role="tab" class="tab" id="tab-scan" aria-controls="panel-scan" aria-selected="true" data-mode="scan">${icon('camera')}<span class="tab-label">Scan<span class="tab-more"> barcode</span></span></button>
+          <button type="button" role="tab" class="tab" id="tab-upload" aria-controls="panel-upload" aria-selected="false" data-mode="upload">${icon('upload')}<span class="tab-label">Upload<span class="tab-more"> photo</span></span></button>
+          <button type="button" role="tab" class="tab" id="tab-search" aria-controls="panel-search" aria-selected="false" data-mode="search">${icon('search')}<span class="tab-label">Search<span class="tab-more"> by name</span></span></button>
+        </div>
+        <div class="mode-panel" id="panel-scan" role="tabpanel" aria-labelledby="tab-scan">
+          <div id="barcode-reader" class="barcode-reader"></div>
+          <button type="button" class="finder-action" id="startScanner">${icon('camera', 20)}<span><strong>Open the camera</strong><small>Point it at the barcode on the package</small></span></button>
+          <button type="button" class="button secondary" id="stopScanner" hidden>Stop camera</button>
+        </div>
+        <div class="mode-panel" id="panel-upload" role="tabpanel" aria-labelledby="tab-upload" hidden>
+          <button type="button" class="finder-action" id="pickPhoto">${icon('upload', 20)}<span><strong>Choose a photo of the barcode</strong><small>A close, sharp, well lit photo works best</small></span></button>
+          <input type="file" id="barcodeImage" accept="image/*" hidden>
+        </div>
+        <div class="mode-panel" id="panel-search" role="tabpanel" aria-labelledby="tab-search" hidden>
+          <form id="searchForm" class="finder-form" role="search">
+            <label class="sr-only" for="searchInput">Product or brand</label>
+            <input id="searchInput" type="search" autocomplete="off" placeholder="Product or brand, e.g. peanut butter, oat milk">
+            <button type="submit" class="button">${icon('search')}Search</button>
+          </form>
+          <div id="searchArea" class="search-area" hidden>
+            <h3 id="resultsTitle" class="results-title" tabindex="-1"></h3>
+            <p id="searchSummary" class="muted" role="status"></p>
+            <div id="searchResults" class="search-results"></div>
+            <nav id="searchPager" class="pager" aria-label="Search result pages"></nav>
+          </div>
+        </div>
+        <p id="scannerStatus" role="status" class="finder-status" data-compare-status></p>
+        <p id="apiStatus" class="muted"></p>
+      </div>
+    </section>
   </div>
 
-  <section class="section" id="values">
+  <section class="section" id="demo" aria-labelledby="demoTitle">
     <div class="section-head">
-      <span class="eyebrow">01 · CUSTOMER VALUES</span>
-      <h2>What matters most to you?</h2>
-      <p>Drag to set how much each value matters. Changes apply instantly and are saved in this browser automatically, so every result, comparison and the assistant use them.</p>
+      <h2 id="demoTitle">Try a demo product</h2>
+      <p>The best and the weakest fit for your current values. Demo products and their prices are fictional.</p>
     </div>
-    <div class="panel">
-      <div id="sliders"></div>
-      <div class="budget">
-        <label for="budget">Maximum price (CAD)</label>
-        <input id="budget" type="number" min="0" step="0.50" value="${state.user.budget_cad}" />
-      </div>
-      <p id="saveStatus" role="status" class="muted">✓ Saved automatically</p>
-    </div>
-  </section>
-
-  <section class="section alternate" id="find">
-    <div class="section-head">
-      <span class="eyebrow">02 · FIND A PRODUCT</span>
-      <h2>Scan it, snap it, type it or search it</h2>
-      <p>Pick how you want to find the product. Real products come from Open Food Facts; your result opens on its own page with the score, the reasons and better options.</p>
-    </div>
-    <div class="panel finder">
-      <div class="mode-tabs" role="tablist" aria-label="How to find a product">
-        <button type="button" role="tab" class="mode-tab active" data-mode="scan">📷 Scan barcode</button>
-        <button type="button" role="tab" class="mode-tab" data-mode="upload">🖼️ Upload photo</button>
-        <button type="button" role="tab" class="mode-tab" data-mode="type">🔢 Type barcode</button>
-        <button type="button" role="tab" class="mode-tab" data-mode="search">🔎 Search by name</button>
-      </div>
-      <div class="mode-panel" data-panel="scan">
-        <div id="barcode-reader" class="barcode-reader"></div>
-        <button type="button" class="camera-box" id="startScanner"><span>📷</span><strong>Tap to open the camera</strong><small>Point it at the barcode on the package</small></button>
-        <button type="button" class="secondary" id="stopScanner" hidden>Stop camera</button>
-      </div>
-      <div class="mode-panel" data-panel="upload" hidden>
-        <label class="camera-box" for="barcodeImage"><span>🖼️</span><strong>Choose a photo of the barcode</strong><small>A close, sharp, well-lit photo works best</small></label>
-        <input type="file" id="barcodeImage" accept="image/*" hidden>
-        <div id="barcode-file-reader" hidden></div>
-      </div>
-      <div class="mode-panel" data-panel="type" hidden>
-        <form id="barcodeForm" class="finder-form">
-          <input id="barcodeInput" inputmode="numeric" autocomplete="off" placeholder="Barcode number, e.g. 3017620422003" maxlength="20" aria-label="Barcode number">
-          <button type="submit">Look up</button>
-        </form>
-        <p class="muted">The number under the barcode lines (8 to 14 digits).</p>
-      </div>
-      <div class="mode-panel" data-panel="search" hidden>
-        <form id="searchForm" class="finder-form">
-          <input id="searchInput" type="search" autocomplete="off" placeholder="Product or brand, e.g. peanut butter, Kraft, oat milk" aria-label="Product name">
-          <button type="submit">Search</button>
-        </form>
-        <div id="searchResults" class="search-results"></div>
-      </div>
-      <p id="scannerStatus" role="status" class="muted"></p>
-    </div>
-    <h3 class="sub-head">Or try a demo product</h3>
     <div id="productsList" class="products-grid"></div>
+    <p class="finder-status" role="status" data-compare-status></p>
   </section>
 
-  <section class="section" id="compare">
+  <section class="section" id="feedback" aria-labelledby="feedbackTitle">
     <div class="section-head">
-      <span class="eyebrow">03 · COMPARE</span>
-      <h2>Compare products fairly</h2>
-      <p>Add up to three products with “＋ Compare” (from search results, demo products or a result page). They are scored with exactly the same model and your values.</p>
-    </div>
-    <div class="panel" id="comparison"></div>
-  </section>
-
-  <section class="section alternate" id="transparency">
-    <div class="section-head">
-      <span class="eyebrow">04 · EVIDENCE</span>
-      <h2>Why this score?</h2>
-      <p>Every assessment is linked to a status and source. Unknown is not zero, and claimed is not verified.</p>
-    </div>
-    <div class="panel verdict-panel" id="verdictPanel" hidden></div>
-    <div class="panel" id="evidencePanel"></div>
-    <div class="panel recommendations">
-      <h3>Better-matching alternatives</h3>
-      <div id="alternatives"></div>
-    </div>
-    <div class="two-col">
-      <div class="panel">
-        <h3>🛒 Where to buy near you</h3>
-        <div id="buyNear"><p class="muted">Finding stores…</p></div>
-      </div>
-      <div class="panel">
-        <h3>♻️ How to dispose of the packaging</h3>
-        <div id="disposeInfo"></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section" id="local">
-    <div class="section-head">
-      <span class="eyebrow">05 · NEAR YOU</span>
-      <h2>Shop and recycle nearby</h2>
-      <p>Real stores and recycling drop-offs from OpenStreetMap, sorted by distance from you. We can't see store inventory, so stock is always shown as Unknown.</p>
-    </div>
-    <div class="near-head">
-      <span id="locationStatus" class="muted">Finding your location…</span>
-      <button class="secondary" id="useLocation">📍 Use my location</button>
-    </div>
-    <div class="tabs" role="tablist">
-      <button role="tab" class="tab active" data-tab="stores">🛒 Stores</button>
-      <button role="tab" class="tab" data-tab="dropoffs">♻️ Recycling drop-offs</button>
-      <select id="storeCategory" aria-label="Product category"><option value="">All groceries</option></select>
-    </div>
-    <div class="near-grid">
-      <div class="panel" id="nearList"><p class="muted">Loading…</p></div>
-      <iframe class="map" id="nearMap" title="Map of your area" loading="lazy"></iframe>
-    </div>
-  </section>
-
-  <section class="section alternate" id="feedback">
-    <div class="section-head">
-      <span class="eyebrow">06 · FEEDBACK</span>
-      <h2>Help improve the evidence</h2>
-      <p>Report an error or missing source. It goes straight to the TrueValue team for review; it never automatically changes scores.</p>
+      <h2 id="feedbackTitle">Report a problem</h2>
+      <p>Found a wrong claim or a missing source? It goes to the TrueValue team for review. It never changes a score automatically.</p>
     </div>
     <form id="feedbackForm" class="panel feedback-form">
-      <label>Product <select name="product" id="feedbackProduct"></select></label>
+      <label>Product (optional) <input type="text" name="product_name" id="feedbackProduct" maxlength="120" autocomplete="off" placeholder="Product name or barcode"></label>
       <label>Issue
         <select name="issue">
           <option value="incorrect-claim">Incorrect claim</option>
@@ -198,258 +127,338 @@ $('#app').innerHTML = `
         </select>
       </label>
       <label>Explanation <textarea name="message" required maxlength="1000" rows="4" placeholder="What should be reviewed?"></textarea></label>
-      <button type="submit">Submit feedback</button>
-      <p role="status" id="feedbackStatus"></p>
+      <button type="submit" class="button">Send report</button>
+      <p role="status" id="feedbackStatus" class="muted"></p>
     </form>
   </section>
-</main>
 
-<a class="chat-fab" href="/chat.html" aria-label="Ask the TrueValue assistant">💬</a>
-<footer>🌿 TrueValue · Shop by your values. Trust the evidence. · Tech Skills Showcase 2026 prototype</footer>`;
+  <section class="section about" id="about" aria-labelledby="aboutTitle">
+    <div class="section-head">
+      <h2 id="aboutTitle">About TrueValue</h2>
+      <p>TrueValue helps shoppers in Regina buy products that match their own values, and shows the evidence behind every score.</p>
+    </div>
+    <p class="about-text">We built TrueValue for the Tech Skills Showcase 2026, run by the Regina Open Door Society, as our answer to the Ethical Consumer Compass challenge. Prices are easy to compare; values are not. TrueValue shows how well a product fits what you care about, such as Canadian ownership, fair trade and packaging, and labels each fact as Verified, Claimed or Unknown so you can see how sure it is.</p>
+    <h3 class="team-title">The team</h3>
+    ${teamCards(team)}
+  </section>
+
+  <footer class="page-foot muted">TrueValue, a Tech Skills Showcase 2026 prototype. Real data: Open Food Facts, OpenStreetMap, Corporations Canada and City of Regina recycling rules.</footer>
+</div>`;
+wireTeamPhotos($('#about'));
 
 function renderStatic() {
-  $('#sliders').innerHTML = dimensions.map(d => `<label class="slider-row"><span>${d.icon} <strong>${esc(d.label)}</strong><small>${esc(d.description)}</small></span><input type="range" min="0" max="100" step="5" data-weight="${d.dimension_id}" value="${state.user.weights[d.dimension_id] ?? d.default_weight}"><output data-output="${d.dimension_id}">${state.user.weights[d.dimension_id] ?? d.default_weight}</output></label>`).join('');
-  $('#feedbackProduct').innerHTML = products.map(p => `<option value="${p.product_id}">${esc(p.name)}</option>`).join('');
-  $('#storeCategory').innerHTML = '<option value="">All groceries</option>' + categories().map(c => `<option ${c === state.storeCategory ? 'selected' : ''}>${esc(c)}</option>`).join('');
+  $('#sliders').innerHTML = dimensions.map(d => {
+    const v = state.user.weights[d.dimension_id] ?? d.default_weight;
+    return `<div class="slider-row">
+      <label class="slider-label" for="w-${esc(d.dimension_id)}">${icon(DIMENSION_ICONS[d.dimension_id] || 'info')}<span><span class="slider-name">${esc(d.label)}</span><small>${esc(d.description)}</small></span></label>
+      <input type="range" id="w-${esc(d.dimension_id)}" min="0" max="100" step="5" data-weight="${esc(d.dimension_id)}" value="${esc(v)}">
+      <output for="w-${esc(d.dimension_id)}" data-output="${esc(d.dimension_id)}">${esc(v)}</output>
+    </div>`;
+  }).join('');
 }
 
 function render() {
   const ranked = rankProducts(products, dimensions, state.user.weights, claims);
   const demos = ranked.length > 1 ? [ranked[0], ranked[ranked.length - 1]] : ranked; // best and weakest fit, for contrast
-  $('#productsList').innerHTML = demos.map(p => { const s = match(p); return `<article class="product-card"><div class="product-icon">${p.emoji}</div><div class="product-info"><p class="muted">${esc(p.brand)} · ${esc(p.category)} · demo</p><h3>${esc(p.name)}</h3><p class="muted">${esc(p.size)} · GTIN ${p.barcode}</p><strong>${money(priceFor(p))}</strong></div><div class="match"><strong>${s.raw_score === null ? 'N/A' : s.raw_score + '/100'}</strong><span>Match on known criteria</span><small>${s.coverage_percent}% evidence coverage</small></div><div class="card-actions"><a class="button" href="/result.html?product=${p.product_id}">See result →</a><button class="secondary" data-details="${p.product_id}">Evidence</button>${compareButton('product', p.product_id, p.name)}</div></article>`; }).join('');
-  renderCompare();
-  const p = products.find(x => x.product_id === state.details) || products[0];
-  $('#evidencePanel').innerHTML = scoreExplanation(p, match(p), companies, sources, certifications, productCertifications);
-  const alternatives = alternativeRecommendations(p, products, dimensions, state.user.weights, claims, prices);
-  $('#alternatives').innerHTML = alternatives.length ? alternatives.map(a => `<p><strong>${esc(a.product.name)}</strong> · Match +${a.score_delta} points · Price difference ${a.price_delta >= 0 ? '+' : ''}${money(a.price_delta)} · <button class="link" data-details="${a.product.product_id}">See evidence</button></p>`).join('') : '<p class="muted">No better-matching alternative among the current demo products.</p>';
-  renderVerdict(p);
+  $('#productsList').innerHTML = demos.map(p => {
+    const s = match(p);
+    return `<article class="product-card">
+      <div class="product-top">
+        <div class="thumb">${icon('package', 24)}</div>
+        <div class="product-info">
+          <p class="muted">${esc(p.brand)} · ${esc(p.category)} · Demo</p>
+          <h3>${esc(p.name)}</h3>
+          <p class="muted">${esc(p.size)} · ${money(priceFor(p))}</p>
+        </div>
+        <div class="match"><span class="match-score">${s.raw_score === null ? 'N/A' : s.raw_score}<small>/100</small></span><small>${s.coverage_percent}% coverage</small></div>
+      </div>
+      <div class="card-actions"><a class="button" href="/result.html?product=${encodeURIComponent(p.product_id)}">See result</a>${compareButton('product', p.product_id, p.name)}</div>
+    </article>`;
+  }).join('');
 }
 
-// ----- True Value Card verdict (from the backend; hidden if offline) -----
-let verdictTimer;
-function renderVerdict(p) {
-  clearTimeout(verdictTimer);
-  if (!online) { $('#verdictPanel').hidden = true; return; }
-  verdictTimer = setTimeout(async () => {
-    try {
-      const card = await api.card(p.product_id, state.user.weights);
-      const current = products.find(x => x.product_id === state.details) || products[0];
-      if (current.product_id !== p.product_id) return; // user already picked another product
-      $('#verdictPanel').hidden = false;
-      $('#verdictPanel').innerHTML = `<div class="verdict-head"><span class="big-score">${card.score ?? 'N/A'}<small>/100</small></span>
-        <div><p class="muted">True Value Score for ${esc(card.name)}, matched to your priorities</p>
-        <h3>${verdictPill(card.verdict)} ${esc(card.verdict.sentence)}</h3>
-        <p>${esc(card.verdict.reason || '')}</p>
-        <p class="muted">Based on ${card.verified_percent}% verified data · ${card.coverage_percent}% evidence coverage</p></div></div>`;
-    } catch { $('#verdictPanel').hidden = true; }
-  }, 250);
-}
-
-// ----- Evidence: where to buy + disposal for the selected product -----
-async function renderProductContext() {
-  const p = products.find(x => x.product_id === state.details) || products[0];
-  const loc = state.location;
-  $('#disposeInfo').innerHTML = '<p class="muted">Loading…</p>';
-  if (online) {
-    try { $('#disposeInfo').innerHTML = disposalView(await api.disposal(p.product_id)); }
-    catch (e) { $('#disposeInfo').innerHTML = `<p class="muted">${esc(e.message)}</p>`; }
-  } else {
-    $('#disposeInfo').innerHTML = `<p class="muted">Start the backend to see Regina recycling guidance. Materials: ${esc(p.packaging.materials.join(', '))}.</p>`;
-  }
-  if (!loc) return;
-  if (!online) { $('#buyNear').innerHTML = '<p class="muted">Start the backend to find real stores near you.</p>'; return; }
-  $('#buyNear').innerHTML = '<p class="muted">Finding stores…</p>';
-  try {
-    const res = await api.stores(loc.lat, loc.lon, p.category);
-    $('#buyNear').innerHTML = `<p class="muted">${esc(p.name)} is demo data, so stock can't be confirmed. These real stores sell ${esc(p.category.toLowerCase())}:</p>` + placeList(res.items.slice(0, 3));
-  } catch (e) { $('#buyNear').innerHTML = `<p class="muted">${esc(e.message)}</p>`; }
-}
-
-// ----- Near you section -----
-async function renderNear() {
-  const loc = state.location;
-  $('#locationStatus').textContent = locationLine(loc).replace(/<[^>]+>/g, '');
-  if (!loc) return;
-  $('#nearMap').src = mapEmbedUrl(loc.lat, loc.lon);
-  $('#storeCategory').hidden = state.nearTab !== 'stores';
-  if (!online) { $('#nearList').innerHTML = '<p class="muted">Start the backend (FastAPI) to load real nearby places.</p>'; return; }
-  $('#nearList').innerHTML = '<p class="muted">Searching OpenStreetMap…</p>';
-  try {
-    if (state.nearTab === 'stores') {
-      const res = await api.stores(loc.lat, loc.lon, state.storeCategory || undefined);
-      $('#nearList').innerHTML = placeList(res.items, { kind: 'stores' });
-    } else {
-      const res = await api.dropOffs(loc.lat, loc.lon);
-      $('#nearList').innerHTML = `<p class="muted">SARCAN depots take glass, flexible plastics and deposit containers (refund).</p>` + placeList(res.items, { kind: 'dropoffs', emptyText: 'No drop-off points found nearby.' }) + '<p class="muted"><a href="https://www.sarcan.ca/" target="_blank" rel="noopener">All SARCAN depots ↗</a></p>';
-    }
-  } catch (e) { $('#nearList').innerHTML = `<p class="muted">${esc(e.message)}</p>`; }
-}
-
-async function locate(force = false) {
-  $('#locationStatus').textContent = 'Finding your location…';
-  state.location = await getLocation({ force });
-  renderNear();
-  renderProductContext();
-}
-
-// ----- barcode scanner -----
+// ----- finder: camera, photo, search -----
 function lookupBarcode(code) {
   // Inputs live on this page; the answer opens on the result page.
   location.href = `/result.html?barcode=${encodeURIComponent(code)}`;
 }
 
-function wireScanner() {
+async function resetCamera() { await stopCamera(); $('#stopScanner').hidden = true; $('#startScanner').hidden = false; }
+
+function wireFinder() {
   const status = $('#scannerStatus');
   $('#startScanner').addEventListener('click', async () => {
-    status.textContent = 'Opening camera…';
+    status.textContent = 'Opening camera...';
     try {
       await startCamera('barcode-reader', code => { $('#stopScanner').hidden = true; lookupBarcode(code); });
       $('#stopScanner').hidden = false; $('#startScanner').hidden = true;
       status.textContent = 'Point the camera at the barcode and hold steady.';
     } catch (e) { status.textContent = e.message; }
   });
-  $('#stopScanner').addEventListener('click', async () => { await stopCamera(); $('#stopScanner').hidden = true; $('#startScanner').hidden = false; status.textContent = 'Camera stopped.'; });
+  $('#stopScanner').addEventListener('click', async () => { await resetCamera(); status.textContent = 'Camera stopped.'; });
+  $('#pickPhoto').addEventListener('click', () => $('#barcodeImage').click());
   $('#barcodeImage').addEventListener('change', async e => {
     const file = e.target.files?.[0]; if (!file) return;
-    status.textContent = 'Reading the barcode in your photo…';
-    try { lookupBarcode(await scanImage(file, 'barcode-file-reader')); }
+    status.textContent = 'Reading the barcode in your photo...';
+    try { lookupBarcode(await scanImage(file)); }
     catch (err) { status.textContent = err.message; }
     e.target.value = '';
   });
-  $('#barcodeForm').addEventListener('submit', e => {
-    e.preventDefault();
-    const code = $('#barcodeInput').value.replace(/\D/g, '');
-    if (code.length < 8 || code.length > 14) { status.textContent = 'Enter an 8 to 14 digit barcode.'; return; }
-    lookupBarcode(code);
-  });
-  document.querySelectorAll('.mode-tab').forEach(tab => tab.addEventListener('click', async () => {
-    document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t === tab));
-    document.querySelectorAll('.mode-panel').forEach(p => { p.hidden = p.dataset.panel !== tab.dataset.mode; });
+  wireTabs(document.querySelector('.finder .tabs'), async tab => {
     status.textContent = '';
-    if (tab.dataset.mode !== 'scan') { await stopCamera(); $('#stopScanner').hidden = true; $('#startScanner').hidden = false; }
-    tab.dataset.mode === 'type' && $('#barcodeInput').focus();
-    tab.dataset.mode === 'search' && $('#searchInput').focus();
-  }));
-  $('#searchForm').addEventListener('submit', e => { e.preventDefault(); searchProducts($('#searchInput').value); });
-}
-
-// ----- compare (dynamic: whatever the shopper added) -----
-function compareButton(kind, id, name) {
-  const on = inTray(kind, id);
-  return `<button type="button" class="compare-btn ${on ? 'on' : ''}" data-compare-kind="${kind}" data-compare-id="${esc(id)}" data-compare-name="${esc(name)}">${on ? '✓ In compare' : '＋ Compare'}</button>`;
-}
-
-let compareRun = 0;
-async function renderCompare() {
-  const run = ++compareRun;
-  const tray = getTray();
-  const box = $('#comparison');
-  if (!tray.length) { box.innerHTML = '<p class="muted">Nothing to compare yet. Search or scan products and tap “＋ Compare” on up to three of them.</p>'; return; }
-  if (!online) { box.innerHTML = '<p class="muted">Start the backend to compare products.</p>'; return; }
-  box.innerHTML = '<p class="muted">Scoring your products…</p>';
-  const cards = await Promise.all(tray.map(async t => {
-    try {
-      if (t.kind === 'product') return { t, card: await api.card(t.id, state.user.weights) };
-      const res = await api.barcode(t.id, state.user.weights);
-      return res.found ? { t, card: res.card } : { t, error: res.error };
-    } catch (e) { return { t, error: e.message }; }
-  }));
-  if (run !== compareRun) return; // a newer render started
-  const ok = cards.filter(x => x.card);
-  const dims = ok.length ? ok[0].card.breakdown.map(r => r.dimension) : [];
-  const cell = (card, d) => { const r = card.breakdown.find(x => x.dimension === d); return r ? `${r.score === null ? 'Unknown' : r.score + '/100'}<br><small>${esc(r.status)}</small>` : '-'; };
-  const link = t => t.kind === 'product' ? `/result.html?product=${encodeURIComponent(t.id)}` : `/result.html?barcode=${encodeURIComponent(t.id)}`;
-  box.innerHTML = `
-    <div class="table-scroll"><table><thead><tr><th>Value</th>${ok.map(x => `<th><a href="${link(x.t)}">${esc(x.card.name)}</a><br><small>${x.card.demo_data ? 'Demo product' : 'Real · Open Food Facts'}</small></th>`).join('')}</tr></thead><tbody>
-      <tr><th>True Value score</th>${ok.map(x => `<td><strong>${x.card.score ?? 'N/A'}/100</strong><br>${verdictPill(x.card.verdict)}</td>`).join('')}</tr>
-      ${dims.map(d => `<tr><th>${esc(d)}</th>${ok.map(x => `<td>${cell(x.card, d)}</td>`).join('')}</tr>`).join('')}
-      <tr><th>Evidence</th>${ok.map(x => `<td>${x.card.verified_percent}% verified<br><small>${x.card.coverage_percent}% coverage</small></td>`).join('')}</tr>
-      <tr><th>Price</th>${ok.map(x => `<td>${money(x.card.price)}</td>`).join('')}</tr>
-      <tr><th></th>${ok.map(x => `<td><button type="button" class="link" data-compare-kind="${x.t.kind}" data-compare-id="${esc(x.t.id)}">Remove</button></td>`).join('')}</tr>
-    </tbody></table></div>
-    ${cards.filter(x => x.error).map(x => `<p class="muted">Couldn't score ${esc(x.t.name)}: ${esc(x.error)}</p>`).join('')}
-    <p><button type="button" class="link" id="clearCompare">Clear comparison</button></p>`;
-}
-
-function onCompareClick(btn) {
-  const item = { kind: btn.dataset.compareKind, id: btn.dataset.compareId, name: btn.dataset.compareName || btn.dataset.compareId };
-  const result = toggleTray(item);
-  if (result === 'full') { $('#scannerStatus').textContent = `You can compare up to ${TRAY_MAX} products. Remove one first.`; return; }
-  document.querySelectorAll(`[data-compare-kind="${item.kind}"][data-compare-id="${CSS.escape(item.id)}"].compare-btn`).forEach(b => {
-    const on = result === 'added'; b.classList.toggle('on', on); b.textContent = on ? '✓ In compare' : '＋ Compare';
+    if (tab.dataset.mode !== 'scan') await resetCamera();
+    if (tab.dataset.mode === 'search') { $('#searchInput').focus(); fitPageSize(); }
   });
-  renderCompare();
+  $('#searchForm').addEventListener('submit', e => { e.preventDefault(); searchProducts($('#searchInput').value); });
+  wireResults();
 }
 
-// ----- search by name (Open Food Facts, plus matching demo products) -----
+// Search results are fetched once (up to 48) and paged here, without calling the backend again.
+// The page size is not fixed: fitPageSize() works out how many rows fit from real rendered heights.
+const results = { query: '', items: [], page: 1, perPage: 5, seq: 0 };
+const MIN_ROWS = 3, MAX_ROWS = 10;
+const pageCount = () => Math.max(1, Math.ceil(results.items.length / results.perPage));
+
+function searchItem(i) {
+  const demo = i.source === 'demo';
+  const href = demo ? `/result.html?product=${encodeURIComponent(i.product_id)}` : `/result.html?barcode=${encodeURIComponent(i.barcode)}`;
+  const meta = [i.brand || (i.quantity ? null : 'Brand not listed'), i.quantity, !demo && i.sold_in_canada ? 'Sold in Canada' : null,
+    demo ? 'Demo product' : 'Open Food Facts'].filter(Boolean).join(' · ');
+  // The See result link is stretched over the whole row (CSS), so clicking anywhere on the row opens the result
+  return `<article class="search-item">
+    ${i.image ? `<img class="thumb" src="${esc(i.image)}" alt="" loading="lazy">` : `<span class="thumb">${icon('package', 20)}</span>`}
+    <div class="search-text"><strong class="search-name">${esc(i.name)}</strong><small class="search-meta" title="${esc(meta)}">${esc(meta)}</small></div>
+    <div class="search-actions">
+      <a class="button secondary small see-result" href="${href}" aria-label="See result for ${esc(i.name)}"><span class="btn-text">See result</span>${icon('next')}</a>
+      ${compareButton(demo ? 'product' : 'barcode', demo ? i.product_id : i.barcode, i.name)}
+    </div>
+  </article>`;
+}
+
+// At most 5 page buttons: all pages up to 5, otherwise first, last and the current page with its neighbours.
+function pageList(current, total) {
+  if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+  const keep = [...new Set([1, current - 1, current, current + 1, total])].filter(n => n >= 1 && n <= total).sort((a, b) => a - b);
+  return keep.flatMap((n, i) => (i && n - keep[i - 1] > 1 ? ['gap', n] : [n]));
+}
+
+function pagerView(page, total) {
+  if (total <= 1) return '';
+  const nums = pageList(page, total).map(n => n === 'gap'
+    ? '<span class="pager-gap" aria-hidden="true">…</span>'
+    : `<button type="button" class="button secondary small pager-num" data-page="${n}" aria-label="Page ${n}"${n === page ? ' aria-current="page"' : ''}>${n}</button>`).join('');
+  return `<button type="button" class="button secondary small pager-step" data-page="${page - 1}" aria-label="Previous page"${page === 1 ? ' disabled' : ''}>${icon('back')}<span class="pager-label">Previous</span></button>
+    <div class="pager-pages">${nums}</div>
+    <span class="pager-text">Page ${page} of ${total}</span>
+    <button type="button" class="button secondary small pager-step" data-page="${page + 1}" aria-label="Next page"${page === total ? ' disabled' : ''}><span class="pager-label">Next</span>${icon('next')}</button>`;
+}
+
+function renderResults() {
+  const n = results.items.length;
+  $('#searchArea').hidden = n === 0;
+  if (!n) return;
+  const total = pageCount(), per = results.perPage;
+  results.page = Math.min(Math.max(1, results.page), total);
+  const start = (results.page - 1) * per, shown = results.items.slice(start, start + per);
+  $('#resultsTitle').textContent = `Results for "${results.query}"`;
+  $('#searchSummary').textContent = `Showing ${start + 1} to ${start + shown.length} of ${n} result${n === 1 ? '' : 's'}. Products sold in Canada are listed first.`;
+  $('#searchResults').innerHTML = shown.map(searchItem).join('');
+  const pager = $('#searchPager');
+  pager.innerHTML = pagerView(results.page, total);
+  pager.hidden = total <= 1;
+  fitRows();
+}
+
+// ----- fitting the results to the space: every height is measured from the rendered page -----
+const px = v => parseFloat(v) || 0;
+const sideBySide = () => Math.abs($('#values').getBoundingClientRect().top - $('#find').getBoundingClientRect().top) < 2;
+const searchVisible = () => results.items.length > 0 && !$('#panel-search').hidden;
+
+// The finder panel height we aim for: level with the values card when they sit side by side,
+// otherwise the visible screen height minus the top bar and a margin.
+function targetHeight() {
+  const finder = $('#find .panel').getBoundingClientRect();
+  if (sideBySide()) return $('#values .panel').getBoundingClientRect().bottom - finder.top;
+  const topbar = document.querySelector('.topbar');
+  const bar = topbar && getComputedStyle(topbar).display !== 'none' ? topbar.getBoundingClientRect().height : 0;
+  return innerHeight - bar - 2 * px(getComputedStyle(document.documentElement).getPropertyValue('--space-4'));
+}
+
+// Share the leftover space between the rows so the finder ends exactly at the target.
+// Side by side the rows may grow or shrink a little; stacked they may only shrink (to stay on screen).
+// Rows never go below half their compact padding.
+function fitRows() {
+  const list = $('#searchResults');
+  list.style.removeProperty('--row-pad');
+  const shown = list.children.length;
+  if (!searchVisible() || pageCount() <= 1 || shown < results.perPage) return;
+  const p0 = px(getComputedStyle(list.firstElementChild).paddingTop);
+  const diff = targetHeight() - $('#find .panel').getBoundingClientRect().height;
+  let pad = p0 + diff / (2 * shown);
+  if (!sideBySide()) pad = Math.min(pad, p0);
+  list.style.setProperty('--row-pad', `${Math.min(p0 + 12, Math.max(p0 / 2, pad)).toFixed(2)}px`);
+}
+
+// Page size = (target height - the finder's fixed parts) / measured row heights, rounded down,
+// plus one row if the leftover is at least half a row and the rows can shrink to take it. Between 3 and 10.
+function fitPageSize() {
+  if (!searchVisible()) return;
+  const list = $('#searchResults'), pager = $('#searchPager');
+  list.style.removeProperty('--row-pad');
+  // Count the pager as a fixed part even when the current page size has only one page
+  const pagerWasHidden = pager.hidden;
+  if (pagerWasHidden) { pager.innerHTML = pagerView(1, 2); pager.hidden = false; }
+  const fixed = $('#find .panel').getBoundingClientRect().height - list.getBoundingClientRect().height;
+  if (pagerWasHidden) { pager.innerHTML = ''; pager.hidden = true; }
+  // Measure real row heights on an invisible copy of the list, so the visible rows (and focus) stay put
+  const probe = document.createElement('div');
+  probe.className = 'search-results search-probe';
+  probe.setAttribute('aria-hidden', 'true');
+  probe.innerHTML = results.items.slice(0, MAX_ROWS + 1).map(searchItem).join('');
+  $('#searchArea').append(probe);
+  const h = [...probe.children].map(r => r.getBoundingClientRect().height);
+  const p0 = px(getComputedStyle(probe.firstElementChild).paddingTop);
+  probe.remove();
+  const avg = h.reduce((a, b) => a + b, 0) / h.length;
+  const H = k => (k < h.length ? h[k] : avg);
+  const sum = k => Array.from({ length: k }, (_, j) => H(j)).reduce((a, b) => a + b, 0);
+  const avail = targetHeight() - fixed;
+  let n = MIN_ROWS;
+  while (n < MAX_ROWS && sum(n + 1) <= avail) n++;
+  if (n < MAX_ROWS && avail - sum(n) >= H(n) / 2 && p0 - (sum(n + 1) - avail) / (2 * (n + 1)) >= p0 / 2) n++;
+  // Do not rebuild the rows under the user's focus (for example right after pressing Compare)
+  if (n !== results.perPage && !list.contains(document.activeElement)) {
+    const first = (results.page - 1) * results.perPage; // stay on the page that holds this result
+    results.perPage = n;
+    results.page = Math.floor(first / n) + 1;
+    renderResults();
+  } else fitRows();
+}
+
+let fitTimer;
+const scheduleFit = () => { clearTimeout(fitTimer); fitTimer = setTimeout(fitPageSize, 150); };
+
+function goToPage(page) {
+  results.page = page;
+  renderResults();
+  // Bring the list (not the whole page) back into view, and move focus to its heading for keyboard and screen reader users
+  $('#resultsTitle').focus({ preventScroll: true });
+  const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  $('#searchArea').scrollIntoView({ block: 'start', behavior: smooth ? 'smooth' : 'auto' });
+}
+
+function wireResults() {
+  $('#searchPager').addEventListener('click', e => {
+    const btn = e.target.closest('button[data-page]');
+    if (!btn || btn.disabled) return;
+    const page = Number(btn.dataset.page);
+    if (page !== results.page) goToPage(page);
+  });
+  // Recalculate the page size when the window or the values card changes size
+  addEventListener('resize', scheduleFit);
+  new ResizeObserver(scheduleFit).observe($('#values .panel'));
+  // A status line in the finder (for example "added to compare") only re-shares the row padding, so the list does not jump
+  let rowTimer;
+  const status = new ResizeObserver(() => { clearTimeout(rowTimer); rowTimer = setTimeout(fitRows, 150); });
+  ['#scannerStatus', '#apiStatus'].forEach(s => status.observe($(s)));
+}
+
 async function searchProducts(query) {
-  const status = $('#scannerStatus'), out = $('#searchResults');
-  if (query.trim().length < 2) { status.textContent = 'Type at least two letters.'; return; }
-  if (!online) { status.textContent = 'Start the backend to search products.'; return; }
-  status.textContent = `Searching for “${query}”…`; out.innerHTML = '';
+  const status = $('#scannerStatus');
+  query = query.trim();
+  if (query.length < 2) { status.textContent = 'Type at least two letters.'; return; }
+  status.textContent = `Searching for "${query}"...`;
+  const seq = ++results.seq; // a slow earlier search must not replace a newer one
+  Object.assign(results, { query, items: [], page: 1 });
+  renderResults();
   try {
     const res = await api.search(query);
-    status.textContent = res.error || (res.items.length ? `${res.items.length} products found. Products sold in Canada are listed first.` : 'No products found. Try fewer or different words, or scan the barcode.');
-    out.innerHTML = res.items.map(i => {
-      const href = i.source === 'demo' ? `/result.html?product=${encodeURIComponent(i.product_id)}` : `/result.html?barcode=${encodeURIComponent(i.barcode)}`;
-      const kind = i.source === 'demo' ? 'product' : 'barcode', id = i.source === 'demo' ? i.product_id : i.barcode;
-      return `<article class="search-item">
-        ${i.image ? `<img src="${esc(i.image)}" alt="" loading="lazy">` : `<div class="search-emoji">${esc(i.emoji || '📦')}</div>`}
-        <div><strong>${esc(i.name)}</strong><small>${esc([i.brand, i.quantity].filter(Boolean).join(' · '))}</small>
-          <small>${i.source === 'demo' ? 'Demo product' : (i.sold_in_canada ? '🍁 Sold in Canada · ' : '') + 'Open Food Facts'}</small></div>
-        <div class="search-actions"><a class="button" href="${href}">See result →</a>${compareButton(kind, id, i.name)}</div>
-      </article>`;
-    }).join('');
-  } catch (e) { status.textContent = e.message; }
+    if (seq !== results.seq) return;
+    results.items = res.items || [];
+    status.textContent = res.error || (results.items.length ? '' : 'No products found. Try fewer or different words, or scan the barcode.');
+    renderResults();
+    fitPageSize();
+  } catch (e) { if (seq === results.seq) status.textContent = e.message; }
+}
+
+// ----- compare: the buttons add to the tray; the table is on /compare.html -----
+function onCompare(result, item, btn) {
+  const box = btn?.closest('section')?.querySelector('[data-compare-status]') || $('#scannerStatus');
+  const link = '<a href="/compare.html">View comparison</a>';
+  box.innerHTML = result === 'full'
+    ? `You can compare up to ${TRAY_MAX} products. <a href="/compare.html">Open the comparison</a> to remove one first.`
+    : result === 'added' ? `${esc(item.name)} added to compare (${getTray().length} of ${TRAY_MAX}). ${link}`
+      : `${esc(item.name)} removed from compare.`;
 }
 
 // ----- events -----
 function wire() {
   // Values apply instantly and auto-save, so result, compare and assistant pages always use the latest ones
+  // Signed in: also saved to the account 800ms after the last change (preferencesSync.js)
   let saveTimer;
-  const autosave = () => { clearTimeout(saveTimer); $('#saveStatus').textContent = 'Saving…'; saveTimer = setTimeout(() => { saveUser(state.user); $('#saveStatus').textContent = '✓ Saved automatically'; }, 400); };
-  $('#sliders').addEventListener('input', e => { const id = e.target.dataset.weight; if (!id) return; state.user.weights[id] = Number(e.target.value); $(`[data-output="${id}"]`).textContent = e.target.value; render(); autosave(); });
-  $('#budget').addEventListener('input', e => { state.user.budget_cad = Math.max(0, Number(e.target.value) || 0); render(); autosave(); });
-  document.addEventListener('click', e => {
-    const c = e.target.closest('[data-compare-kind]'); if (c) { onCompareClick(c); return; }
-    if (e.target.id === 'clearCompare') { clearTray(); render(); }
+  const accountStatus = { saving: 'Saving...', saved: 'Saved', error: 'Saved in this browser. Your account could not be updated.' };
+  const autosave = () => {
+    clearTimeout(saveTimer); $('#saveStatus').textContent = 'Saving...';
+    saveTimer = setTimeout(() => {
+      saveUser(state.user);
+      if (!queueSave(state.user, s => { $('#saveStatus').textContent = accountStatus[s]; })) $('#saveStatus').textContent = 'Saved in this browser';
+    }, 400);
+  };
+  $('#sliders').addEventListener('input', e => {
+    const id = e.target.dataset.weight; if (!id) return;
+    state.user.weights[id] = Number(e.target.value); $(`[data-output="${id}"]`).textContent = e.target.value;
+    render(); autosave();
   });
-  document.addEventListener('click', e => {
-    const btn = e.target.closest('[data-details]'); if (!btn) return;
-    state.details = btn.dataset.details; render(); renderProductContext();
-    $('#transparency').scrollIntoView({ behavior: 'smooth' });
-  });
-  $('#useLocation').addEventListener('click', () => locate(true));
-  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
-    state.nearTab = t.dataset.tab; renderNear();
-  }));
-  $('#storeCategory').addEventListener('change', e => { state.storeCategory = e.target.value; renderNear(); });
+  $('#budget').addEventListener('input', e => { state.user.budget_cad = Math.max(0, Number(e.target.value) || 0); autosave(); });
+  wireCompareButtons(onCompare);
+  if (report.name) $('#feedbackProduct').value = report.name;
   $('#feedbackForm').addEventListener('submit', async e => {
     e.preventDefault();
     const form = new FormData(e.target); const message = String(form.get('message') || '').trim(); if (!message) return;
-    const record = { product_id: form.get('product'), issue: form.get('issue'), message };
-    try { const r = await api.feedback(record); $('#feedbackStatus').textContent = r.emailed ? 'Thanks! Your feedback was sent to the TrueValue team.' : 'Thanks! Feedback saved for review.'; }
-    catch { saveFeedback(record); $('#feedbackStatus').textContent = 'Server unavailable: feedback saved in this browser as pending review.'; }
+    const name = String(form.get('product_name') || '').trim();
+    const record = { issue: form.get('issue'), message };
+    if (name) record.product_name = name;
+    // Send the catalog id only when the name is still the one the result page filled in
+    if (report.id && name && name === report.name) record.product_id = report.id;
+    try { const r = await api.feedback(record); $('#feedbackStatus').textContent = r.emailed ? 'Thanks. Your report was sent to the TrueValue team.' : 'Thanks. Your report was saved for review.'; }
+    catch { saveFeedback(record); $('#feedbackStatus').textContent = 'The server is unavailable, so your report was saved in this browser for later review.'; }
     e.target.reset();
   });
 }
 
-async function init() {
-  try {
-    const data = await api.catalog();
-    ({ products, companies, certifications, productCertifications, claims, retailers } = data);
-    sources = data.dataSources; dimensions = data.ethicalDimensions; prices = data.priceObservations;
-    online = true;
-    $('#apiStatus').textContent = '· Live data from the TrueValue server';
-  } catch {
-    $('#apiStatus').textContent = '· Offline mode: server unreachable, showing bundled demo data';
-  }
-  dimensions.forEach(d => { if (state.user.weights[d.dimension_id] === undefined) state.user.weights[d.dimension_id] = d.default_weight; });
+const fillWeights = () => dimensions.forEach(d => {
+  if (state.user.weights[d.dimension_id] === undefined) state.user.weights[d.dimension_id] = d.default_weight;
+});
+
+// The page draws at once from the demo data bundled with it (the same files the server seeds from), so the
+// values card never waits for the network. The server copy is then fetched, and the page redraws only if it differs.
+function init() {
+  fillWeights();
   renderStatic();
   render();
+  rendered = true;
   wire();
-  wireScanner();
-  locate(); // asks the browser for location automatically; falls back to downtown Regina
+  wireFinder();
+  $('#apiStatus').textContent = 'Connecting to the TrueValue server...';
+  // Arriving from another page with /#values, /#find, /#about or /#feedback: scroll once the content exists
+  if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
+  syncCatalog();
+}
+
+async function syncCatalog() {
+  try {
+    const data = await api.catalog();
+    const next = [data.products, data.claims, data.ethicalDimensions, data.priceObservations];
+    const changed = JSON.stringify(next) !== JSON.stringify([products, claims, dimensions, prices]);
+    [products, claims, dimensions, prices] = next;
+    $('#apiStatus').textContent = 'Live data from the TrueValue server.';
+    if (!changed) return;
+    fillWeights();
+    // Redrawing the sliders would drop a slider someone is dragging; the scores below still update
+    if (!$('#sliders').contains(document.activeElement)) renderStatic();
+    render();
+  } catch {
+    $('#apiStatus').textContent = 'Offline: the server is unreachable, so the bundled demo data is shown.';
+  }
 }
 init();

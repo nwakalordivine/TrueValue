@@ -1,4 +1,7 @@
-// Small HTML builders shared by the main page and the assistant page.
+// Small HTML builders shared by the pages.
+import { icon, BIN_ICONS } from './icons.js';
+
+const EXT = `${icon('external', 14)}<span class="sr-only"> (opens in a new tab)</span>`;
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const money = p => (p === null || p === undefined ? 'Price unknown' : `$${Number(p).toFixed(2)} CAD`);
 
@@ -17,15 +20,15 @@ export function placeList(items, { kind = 'stores', emptyText = 'Nothing found n
   return `<ul class="place-list">${items.map(p => `
     <li class="place">
       <div>
-        <strong>${kind === 'stores' ? '🛒' : (p.is_sarcan ? '♻️' : '🗑️')} ${esc(p.name)}</strong>
+        <strong>${icon(kind === 'stores' ? 'store' : (p.is_sarcan ? 'depot' : 'recycle'))}${esc(p.name)}</strong>
         <small>${esc([p.kind && p.kind.replace(/_/g, ' '), p.address].filter(Boolean).join(' · '))}</small>
-        ${p.opening_hours ? `<small>🕒 ${esc(p.opening_hours)}</small>` : ''}
+        ${p.opening_hours ? `<small>${icon('clock', 14)}${esc(p.opening_hours)}</small>` : ''}
         ${p.accepts?.length ? `<small>Accepts: ${esc(p.accepts.join(', '))}</small>` : ''}
         ${kind === 'stores' ? `<small class="stock">Stock: ${statusBadge('Unknown')}</small>` : ''}
       </div>
       <div class="place-actions">
         <span class="distance">${esc(p.distance_km)} km</span>
-        <a href="${esc(p.directions_url)}" target="_blank" rel="noopener">Directions ↗</a>
+        <a href="${esc(p.directions_url)}" target="_blank" rel="noopener noreferrer">Directions${EXT}</a>
       </div>
     </li>`).join('')}</ul>`;
 }
@@ -35,31 +38,31 @@ export function disposalView(guide) {
   return `<div class="disposal">
     ${guide.product_name ? `<p class="muted">Packaging materials for ${esc(guide.product_name)}: ${statusBadge(guide.materials_status)}</p>` : ''}
     <ul class="bin-list">${guide.items.map(i => `
-      <li><span class="bin bin-${esc(i.bin)}">${esc(i.icon)} ${esc(i.label)}</span>
+      <li><span class="bin bin-${esc(i.bin)}">${icon(BIN_ICONS[i.bin] || 'help', 14)}${esc(i.label)}</span>
         <div><strong>${esc(i.material)}</strong><small>${esc(i.tip)}</small></div></li>`).join('')}
     </ul>
     <p class="muted">Rules: City of Regina recycling program (blue cart changes from July 1, 2025).
-      ${guide.sources.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)} ↗</a>`).join(' · ')}</p>
+      ${guide.sources.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.title)}${EXT}</a>`).join(' · ')}</p>
   </div>`;
 }
 
 export function locationLine(loc) {
   if (!loc) return 'Finding your location…';
   return loc.source === 'browser'
-    ? `📍 Using your location (±${esc(loc.accuracy ?? '?')} m)`
-    : `📍 Using downtown Regina. ${esc(loc.reason || '')}`;
+    ? `Using your location (±${esc(loc.accuracy ?? '?')} m)`
+    : `Using downtown Regina. ${esc(loc.reason || '')}`;
 }
 
 // Result of a barcode scan (demo catalog or Open Food Facts), as a compact True Value Card.
 export function scanResultView(res) {
   if (!res) return '';
-  if (!res.found) return `<div class="scan-result empty"><p>🔎 <strong>${esc(res.barcode)}</strong>: ${esc(res.error)}</p></div>`;
+  if (!res.found) return `<div class="scan-result empty"><p><strong>${esc(res.barcode)}</strong>: ${esc(res.error)}</p></div>`;
   const c = res.card, f = res.facts || {};
   const off = res.source === 'openfoodfacts';
   const reg = res.registry;
   return `<div class="scan-result">
     <div class="scan-head">
-      ${f.image ? `<img src="${esc(f.image)}" alt="" loading="lazy">` : `<div class="scan-emoji">${esc(c.emoji || '📦')}</div>`}
+      ${f.image ? `<img src="${esc(f.image)}" alt="" loading="lazy">` : `<div class="thumb">${icon('package', 24)}</div>`}
       <div class="scan-title">
         <span class="source-tag ${off ? 'real' : 'demo'}">${off ? 'Real product · Open Food Facts' : 'Demo catalog product'}</span>
         <h3>${esc(c.name)}</h3>
@@ -78,7 +81,7 @@ export function scanResultView(res) {
       : reg.possible ? `possible match ${esc(reg.possible.name)} (not confirmed) ${statusBadge('Unknown')}`
       : `${esc(reg.error ? 'Registry not loaded yet.' : 'not in the federal registry')} ${statusBadge('Unknown')}`}</p>` : ''}
     ${c.alternatives?.length ? `<p><strong>Consider instead:</strong> ${c.alternatives.map(a => `${esc(a.name)} (+${a.score_delta})`).join(', ')} <small class="muted">(demo catalog)</small></p>` : ''}
-    <details><summary>♻️ How to dispose of the packaging</summary>${disposalView(res.disposal)}</details>
-    <p class="muted"><a href="/result.html?barcode=${encodeURIComponent(res.barcode)}"><strong>Open full result →</strong></a>${off ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">View on Open Food Facts ↗</a>` : ''}</p>
+    <details><summary>${icon('recycle')}How to dispose of the packaging</summary>${disposalView(res.disposal)}</details>
+    <p class="muted"><a href="/result.html?barcode=${encodeURIComponent(res.barcode)}"><strong>Open full result</strong></a>${off ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">View on Open Food Facts${EXT}</a>` : ''}</p>
   </div>`;
 }

@@ -56,7 +56,7 @@ export async function scanImage(file) {
   } finally {
     bitmap.close?.();
   }
-  throw new Error("No barcode found in that photo. Fill most of the photo with the barcode, keep it sharp and well lit, or type the number instead.");
+  throw new Error("No barcode found in that photo. Fill most of the photo with the barcode, keep it sharp and well lit, or search by name instead.");
 }
 
 // ---------- live camera ----------
@@ -64,8 +64,8 @@ let session = null;
 
 export async function startCamera(elementId, onCode) {
   await stopCamera();
-  if (!window.isSecureContext) throw new Error('The camera needs https (or localhost). Upload a photo or type the barcode instead.');
-  if (!navigator.mediaDevices?.getUserMedia) throw new Error('This browser cannot open the camera. Upload a photo or type the barcode instead.');
+  if (!window.isSecureContext) throw new Error('The camera needs https (or localhost). Upload a photo or search by name instead.');
+  if (!navigator.mediaDevices?.getUserMedia) throw new Error('This browser cannot open the camera. Upload a photo or search by name instead.');
   const host = document.getElementById(elementId);
   let stream;
   try {
@@ -76,7 +76,7 @@ export async function startCamera(elementId, onCode) {
   } catch (err) {
     throw new Error(err?.name === 'NotAllowedError'
       ? 'Camera permission was declined. Allow it in the address bar, or upload a photo instead.'
-      : 'No camera available. Upload a photo or type the barcode instead.');
+      : 'No camera available. Upload a photo or search by name instead.');
   }
   // Ask for continuous autofocus where the camera supports it (phones); ignored elsewhere.
   const track = stream.getVideoTracks()[0];

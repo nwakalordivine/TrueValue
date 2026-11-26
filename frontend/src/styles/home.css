@@ -1,0 +1,148 @@
+/* Home page: values, finder, demo products, about and feedback. */
+.home-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+
+/* Values */
+.sliders { display: grid; }
+.slider-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: var(--space-1) var(--space-3); align-items: center;
+  padding: var(--space-3) 0; border-bottom: var(--border);
+}
+.slider-row:first-child { padding-top: 0; }
+.slider-label { grid-column: 1 / -1; display: flex; gap: var(--space-2); align-items: flex-start; font-weight: var(--fw-regular); }
+.slider-label .icon { margin-top: 2px; color: var(--c-muted); }
+.slider-name { display: block; font-weight: var(--fw-medium); }
+.slider-label small { display: block; color: var(--c-muted); }
+.slider-row input[type=range] { width: 100%; height: var(--tap); margin: 0; accent-color: var(--c-brand); cursor: pointer; }
+.slider-row output { font-weight: var(--fw-semibold); text-align: right; font-variant-numeric: tabular-nums; }
+.budget { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding-top: var(--space-4); }
+.budget input { width: 120px; }
+.save-status { margin: var(--space-3) 0 0; }
+
+/* Finder */
+/* The three tabs share the width evenly and their labels may shrink, so the tab list never overflows */
+.finder { container-type: inline-size; }
+.finder .tabs { margin-top: calc(-1 * var(--space-2)); }
+.finder .tab { flex: 1 1 0; min-width: 0; justify-content: center; padding: 0 var(--space-2); }
+.finder .tab .icon { flex: none; }
+.tab-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Short labels (Scan, Upload, Search) when the finder itself is narrow: phones, and the half-width column at 1280px */
+@container (max-width: 439px) { .tab-more { display: none; } }
+@container (max-width: 279px) { .finder .tab { gap: var(--space-1); padding: 0 var(--space-1); } }
+.finder-action {
+  display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: calc(var(--tap) + var(--space-6)); padding: var(--space-4);
+  border: 1px dashed var(--c-border-strong); border-radius: var(--radius); background: var(--c-bg);
+  color: var(--c-text); text-align: left;
+}
+.finder-action:hover { border-color: var(--c-brand); background: var(--c-brand-soft); }
+.finder-action .icon { color: var(--c-brand); }
+.finder-action strong { display: block; font-weight: var(--fw-medium); }
+.finder-action small { display: block; color: var(--c-muted); }
+.barcode-reader:empty { display: none; }
+.finder-form { display: flex; gap: var(--space-2); }
+.finder-form input { flex: 1; min-width: 0; }
+.finder-status { margin: var(--space-3) 0 0; }
+.finder-status:empty { display: none; }
+#apiStatus { margin: var(--space-2) 0 0; }
+
+.search-results { display: grid; margin-top: var(--space-3); }
+/* Compact rows. --row-pad is set by fitRows() in main.js so the list fills the space exactly. */
+.search-item {
+  position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: var(--space-3); align-items: center;
+  padding: var(--row-pad, var(--space-2)) var(--space-2); border-bottom: var(--border);
+}
+.search-item:last-child { border-bottom: 0; }
+.search-item:hover, .search-item:focus-within { background: var(--c-surface-alt); }
+.search-item .thumb { width: 40px; height: 40px; }
+.search-text { min-width: 0; }
+.search-name {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+  font-weight: var(--fw-medium); line-height: var(--lh-tight);
+}
+.search-meta { display: block; color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.search-actions { display: flex; gap: var(--space-2); }
+.search-actions .button { min-height: 32px; padding: 0 var(--space-2); gap: var(--space-1); }
+/* The See result link covers the whole row; Compare sits above it so it never opens the result */
+.see-result::after { content: ''; position: absolute; inset: 0; }
+.search-actions .compare-btn { position: relative; z-index: 1; }
+.search-probe { position: absolute; left: 0; right: 0; top: 0; visibility: hidden; pointer-events: none; }
+@media (max-width: 399px) {
+  .search-actions .btn-text { display: none; }
+  .search-actions .button { width: 32px; padding: 0; }
+}
+
+/* Search results heading, summary and pages */
+.search-area { position: relative; margin-top: var(--space-4); }
+.results-title { font-size: var(--fs-body); font-weight: var(--fw-semibold); margin: 0 0 var(--space-1); }
+.results-title:focus { outline: none; }
+.results-title:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
+.search-area #searchSummary { margin: 0; }
+/* One line, always: [Previous] [page numbers] [Next] */
+.pager { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: var(--space-2); margin-top: var(--space-3); padding-top: var(--space-3); border-top: var(--border); }
+.pager-pages { display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; }
+.pager .button { gap: var(--space-1); white-space: nowrap; }
+.pager-num { min-width: 36px; padding: 0 var(--space-1); font-variant-numeric: tabular-nums; }
+.pager-num[aria-current=page] { background: var(--c-brand-soft); border-color: var(--c-brand); color: var(--c-brand); }
+.pager-step { padding: 0 var(--space-2); }
+.pager-gap { min-width: 12px; text-align: center; color: var(--c-muted); }
+.pager-text { display: none; color: var(--c-muted); font-size: var(--fs-small); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* A narrow finder: "Page 2 of 9" between icon-only Previous and Next */
+@container (max-width: 359px) {
+  .pager-pages, .pager-label { display: none; }
+  .pager-text { display: inline; }
+  .pager-step { width: 36px; padding: 0; }
+}
+
+/* Demo products */
+.products-grid { display: grid; gap: var(--space-3); }
+.product-card { background: var(--c-surface); border: var(--border); border-radius: var(--radius); padding: var(--space-4); display: grid; gap: var(--space-3); }
+.product-top { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: var(--space-3); align-items: start; }
+.product-top .thumb { width: 48px; height: 48px; }
+.product-info p { margin: 0; }
+.product-info h3 { margin: var(--space-1) 0; font-size: var(--fs-body); font-weight: var(--fw-semibold); }
+.match { text-align: right; }
+.match-score { display: block; font-size: var(--fs-h2); font-weight: var(--fw-semibold); line-height: 1; font-variant-numeric: tabular-nums; }
+.match-score small, .match > small { color: var(--c-muted); font-size: var(--fs-small); font-weight: var(--fw-regular); }
+.card-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+/* About and feedback */
+.about { padding-top: var(--space-8); border-top: var(--border); }
+.feedback-form { display: grid; gap: var(--space-4); max-width: var(--reading-max); }
+.feedback-form label { display: grid; gap: var(--space-2); }
+.feedback-form .button { justify-self: start; }
+.feedback-form p { margin: 0; }
+.page-foot { border-top: var(--border); padding-top: var(--space-4); margin: 0; }
+
+/* Team cards (About). A photo covers the initials circle; if the photo is missing the initials show. */
+.about-text { max-width: var(--reading-max); }
+.team-title { font-size: var(--fs-body); margin: var(--space-6) 0 var(--space-3); }
+.team-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--space-3); }
+.team-card { display: grid; align-content: start; gap: var(--space-1); padding: var(--space-3); background: var(--c-surface); border: var(--border); border-radius: var(--radius); }
+/* Round photo, capped so it stays a portrait on wide cards */
+.team-photo {
+  display: grid; place-items: center; width: min(100%, 160px); aspect-ratio: 1; margin-bottom: var(--space-2);
+  border: var(--border); border-radius: 50%; background: var(--c-surface-alt); overflow: hidden;
+}
+.team-photo > * { grid-area: 1 / 1; }
+.team-photo img { width: 100%; height: 100%; object-fit: cover; }
+.team-initials {
+  display: grid; place-items: center; width: 56%; aspect-ratio: 1; border-radius: var(--radius-full);
+  background: var(--c-surface); border: 1px solid var(--c-border-strong); color: var(--c-muted);
+  font-size: var(--fs-h2); font-weight: var(--fw-semibold); letter-spacing: 0.02em;
+}
+/* Name with the LinkedIn icon on its right; the icon keeps a 44px tap area without making the row taller */
+.team-card .team-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-2); }
+.team-name { margin: 0; min-width: 0; font-weight: var(--fw-semibold); overflow-wrap: anywhere; }
+.team-role { margin: 0; color: var(--c-muted); font-size: var(--fs-small); font-weight: var(--fw-medium); }
+.team-card .team-link { justify-self: end; margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) 0; color: var(--c-text); }
+.team-link:hover { color: var(--c-brand); }
+
+@media (min-width: 768px) {
+  .products-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .slider-row { grid-template-columns: minmax(200px, 1fr) minmax(140px, 1fr) 44px; }
+  .slider-label { grid-column: auto; }
+}
+@media (min-width: 1280px) {
+  .home-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-8); align-items: start; }
+  .slider-row { grid-template-columns: minmax(0, 1fr) 44px; }
+  .slider-label { grid-column: 1 / -1; }
+}
